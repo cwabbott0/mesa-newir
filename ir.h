@@ -28,7 +28,7 @@
 #pragma once
 
 #include "main/hash_table.h"
-#include "main/simple_list.h"
+#include "list.h"
 #include "GL/gl.h" /* GLenum */
 #include "ralloc.h"
 #include "ir_types.h"
@@ -362,7 +362,7 @@ typedef enum {
 } nir_instr_type;
 
 typedef struct {
-   struct simple_node node;
+   struct exec_node node;
    nir_instr_type type;
    struct nir_block *block;
 } nir_instr;
@@ -718,14 +718,14 @@ typedef struct nir_alu_instr {
 } nir_alu_instr;
 
 typedef struct {
-   struct simple_node node;
+   struct exec_node node;
    nir_variable *var;
 } nir_call_param;
 
 typedef struct {
    nir_instr instr;
    
-   struct simple_node param_list; /** < list of nir_call_param */
+   struct exec_list param_list; /** < list of nir_call_param */
    nir_variable *return_var;
    
    struct nir_function_overload *callee;
@@ -875,14 +875,14 @@ typedef enum {
 } nir_cf_node_type;
 
 typedef struct nir_cf_node {
-   struct simple_node node;
+   struct exec_node node;
    nir_cf_node_type type;
    struct nir_cf_node *parent;
 } nir_cf_node;
 
 typedef struct nir_block {
    nir_cf_node cf_node;
-   struct simple_node instr_list;
+   struct exec_list instr_list;
    
    /*
     * Each block can only have up to 2 successors, so we put them in a simple
@@ -897,17 +897,17 @@ typedef struct nir_block {
 typedef struct {
    nir_cf_node cf_node;
    nir_src condition;
-   struct simple_node then_list;
-   struct simple_node else_list;
+   struct exec_list then_list;
+   struct exec_list else_list;
 } nir_if;
 
 typedef struct {
    nir_cf_node cf_node;
-   struct simple_node body;
+   struct exec_list body;
 } nir_loop;
 
 typedef struct {
-   struct simple_node cf_node;
+   struct exec_node cf_node;
    struct nir_variable *var;
 } nir_parameter_variable;
 
@@ -917,7 +917,7 @@ typedef struct {
    /** pointer to the overload of which this is an implementation */
    struct nir_function_overload *overload;
    
-   struct simple_node body; /** < list of nir_cf_node */
+   struct exec_list body; /** < list of nir_cf_node */
    
    nir_block *start_block, *end_block;
    
@@ -925,7 +925,7 @@ typedef struct {
    const char *name;
    
    /** list of variables used as parameters, i.e. nir_parameter_variable */
-   struct simple_node parameters;
+   struct exec_list parameters;
    
    /** variable used to hold the result of the function */
    nir_variable *return_var;
@@ -941,15 +941,15 @@ typedef enum {
 } nir_parameter_type;
 
 typedef struct {
-   struct simple_node node;
+   struct exec_node node;
    nir_parameter_type param_type;
    struct glsl_type *type;
 } nir_parameter;
 
 typedef struct nir_function_overload {
-   struct simple_node node;
+   struct exec_node node;
    
-   struct simple_node param_list;
+   struct exec_list param_list;
    struct glsl_type *return_type;
    
    nir_function_impl *impl; /** < NULL if the overload is only declared yet */
@@ -959,9 +959,9 @@ typedef struct nir_function_overload {
 } nir_function_overload;
 
 typedef struct nir_function {
-   struct simple_node node;
+   struct exec_node node;
    
-   struct simple_node overload_list;
+   struct exec_list overload_list;
    const char *name;
 } nir_function;
 
@@ -971,7 +971,7 @@ typedef struct nir_shader {
    struct hash_table *outputs;
    struct hash_table *globals;
    
-   struct simple_node function_list;
+   struct exec_list function_list;
    
    /** set of global registers in the shader */
    struct hash_table *registers;
