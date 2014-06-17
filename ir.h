@@ -361,6 +361,7 @@ typedef enum {
    nir_instr_type_load_const,
    nir_instr_type_jump,
    nir_instr_type_ssa_undef,
+   nir_instr_type_phi,
 } nir_instr_type;
 
 typedef struct {
@@ -828,6 +829,19 @@ typedef struct {
    nir_ssa_def def;
 } nir_ssa_undef_instr;
 
+typedef struct {
+   struct exec_node node;
+   struct nir_block *pred;
+   nir_src src;
+} nir_phi_src;
+
+typedef struct {
+   nir_instr instr;
+   
+   struct exec_list srcs;
+   nir_dest dest;
+} nir_phi_instr;
+
 /*
  * Control flow
  * 
@@ -865,7 +879,6 @@ typedef struct nir_block {
     * Each block can only have up to 2 successors, so we put them in a simple
     * array - no need for anything more complicated.
     */
-   unsigned num_successors;
    struct nir_block *successors[2];
    
    struct hash_table *predecessors;
