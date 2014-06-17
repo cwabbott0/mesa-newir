@@ -780,7 +780,7 @@ typedef struct {
    unsigned num_variables;
    
    /** if true, the const_index parameter is used / has meaning */
-   bool has_const_index
+   bool has_const_index;
    
    /** true if calls to this intrinsic can't be eliminated if unused */
    bool is_load;
