@@ -89,18 +89,11 @@ Intrinsics are used for:
 - Subroutine calls
 - Geometry shader emitVertex and endPrimitive
 - Loading and storing variables (before lowering)
+- Loading and storing uniforms, shader inputs and outputs, etc (after lowering)
 - Copying variables (cases where in GLSL the destination is a structure or
 array)
 - The kitchen sink
 - ...
-
-Loads and Stores
-=========
-
-Loads and stores to uniforms, shader inputs and outputs (and after
-ARB_shader_buffer_storage, buffers) will be lowered to load instructions and
-store instructions, which specify an index and an offset instead of a variable
-dereference.
 
 Control Flow
 =========

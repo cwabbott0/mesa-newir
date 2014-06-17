@@ -359,8 +359,6 @@ typedef enum {
    nir_instr_type_call,
    nir_instr_type_intrinsic,
    nir_instr_type_load_const,
-   nir_instr_type_load,
-   nir_instr_type_store,
    nir_instr_type_jump,
    nir_instr_type_ssa_undef,
 } nir_instr_type;
@@ -781,6 +779,9 @@ typedef struct {
    /** the number of inputs/outputs that are variables */
    unsigned num_variables;
    
+   /** if true, the const_index parameter is used / has meaning */
+   bool has_const_index
+   
    /** true if calls to this intrinsic can't be eliminated if unused */
    bool is_load;
    
@@ -794,39 +795,8 @@ typedef struct {
    nir_src **reg_inputs;
    nir_dest **reg_outputs;
    nir_deref_var **variables;
+   int const_index;
 } nir_intrinsic_instr;
-
-typedef enum {
-   nir_load_uniform,
-   nir_load_in,
-   /* nir_load_buffer (ARB_shader_storage_buffer_object) */
-} nir_load_type;
-
-typedef struct {
-   nir_instr instr;
-   
-   nir_load_type type;
-   nir_src offset;
-   nir_src src;
-   unsigned block; /** < index of the block minus 1, or 0 for variables outside of a block */
-   uint8_t src_swizzle[4];
-   unsigned offset_component : 2;
-} nir_load_instr;
-
-typedef enum {
-   nir_store_out,
-   /* nir_store_buffer */
-} nir_store_type;
-
-typedef struct {
-   nir_instr instr;
-   
-   nir_store_type type;
-   nir_src offset;
-   nir_dest dest;
-   unsigned block;
-   unsigned offset_component : 2;
-} nir_store_instr;
 
 typedef struct {
    nir_instr instr;
