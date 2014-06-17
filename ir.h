@@ -781,8 +781,11 @@ typedef struct {
    /** the number of inputs/outputs that are variables */
    unsigned num_variables;
    
-   /** true if calls to this intrinsic can't be reordered/CSE'd/eliminated */
-   bool has_side_effects;
+   /** true if calls to this intrinsic can't be eliminated if unused */
+   bool is_load;
+   
+   /** true if calls to this intrinsic can be freely reordered */
+   bool is_reorderable_load;
 } nir_intrinsic;
 
 typedef struct {
