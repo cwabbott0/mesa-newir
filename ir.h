@@ -99,6 +99,8 @@ typedef enum {
  */
 
 typedef struct {
+   struct exec_node node;
+   
    /**
     * Declared type of the variable
     */
@@ -331,6 +333,8 @@ typedef struct {
 } nir_variable;
 
 typedef struct {
+   struct exec_node node;
+   
    unsigned num_components; /** < number of vector components */
    unsigned num_array_elems; /** < size of array (0 for no array) */
    
@@ -921,8 +925,8 @@ typedef struct {
    
    nir_block *start_block, *end_block;
    
-   /** for debug use only, can be NULL */
-   const char *name;
+   /** list for all local variables in the function */
+   struct exec_list locals;
    
    /** list of variables used as parameters, i.e. nir_parameter_variable */
    struct exec_list parameters;
@@ -930,8 +934,8 @@ typedef struct {
    /** variable used to hold the result of the function */
    nir_variable *return_var;
    
-   /** set of local registers in the function */
-   struct hash_table *registers;
+   /** list of local registers in the function */
+   struct exec_list *registers;
 } nir_function_impl;
 
 typedef enum {
@@ -969,11 +973,11 @@ typedef struct nir_shader {
    struct hash_table *uniforms;
    struct hash_table *inputs;
    struct hash_table *outputs;
-   struct hash_table *globals;
+   struct exec_list globals;
    
    struct exec_list function_list;
    
-   /** set of global registers in the shader */
-   struct hash_table *registers;
+   /** list of global registers in the shader */
+   struct exec_list *registers;
 } nir_shader;
 
