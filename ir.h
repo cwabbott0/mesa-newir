@@ -741,6 +741,9 @@ typedef struct {
    
    /** list of local registers in the function */
    struct exec_list *registers;
+   
+   /** next available local register index */
+   unsigned reg_alloc;
 } nir_function_impl;
 
 typedef enum {
@@ -775,14 +778,24 @@ typedef struct nir_function {
 } nir_function;
 
 typedef struct nir_shader {
+   /** hash table of name -> uniform */
    struct hash_table *uniforms;
-   struct hash_table *inputs;
-   struct hash_table *outputs;
-   struct exec_list globals;
    
-   struct exec_list function_list;
+   /** hash table of name -> input */
+   struct hash_table *inputs;
+   
+   /** hash table of name -> output */
+   struct hash_table *outputs;
+   
+   /** hash table of name -> global variable */
+   struct hash_table *globals;
+   
+   struct exec_list functions;
    
    /** list of global registers in the shader */
-   struct exec_list *registers;
+   struct exec_list registers;
+   
+   /** next available global register index */
+   unsigned reg_alloc;
 } nir_shader;
 
