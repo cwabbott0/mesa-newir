@@ -27,25 +27,17 @@
 
 #include "ir.h"
 
-#define OPCODE(name) nir_intrinsic_##name
-
-#define INTRINSIC(_name, _num_reg_inputs, _reg_input_components, \
-   _num_reg_outputs, _reg_output_components, _num_variables, \
-   _has_const_index, _is_load, _is_reorderable_load) \
+#define OPCODE(_name, _num_inputs, _per_component, _output_size, _input_sizes) \
 { \
    .name = #_name, \
-   .num_reg_inputs = _num_reg_inputs, \
-   .reg_input_components = _reg_input_components, \
-   .num_reg_outputs = _num_reg_outputs, \
-   .reg_output_components = _reg_output_components, \
-   .num_variables = _num_variables, \
-   .has_const_index = _has_const_index, \
-   .is_load = _is_load, \
-   .is_reorderable_load = _is_reorderable_load \
+   .num_inputs = _num_inputs, \
+   .per_component = _per_component, \
+   .output_size = _output_size, \
+   .input_sizes = _input_sizes \
 },
 
-#define LAST_INTRINSIC(name)
+#define LAST_OPCODE(name)
 
-const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
-#include "intrinsics.h"
+const nir_op_info nir_op_infos[nir_num_opcodes] = {
+#include "opcodes.h"
 };

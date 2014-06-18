@@ -1,7 +1,7 @@
 CUR_DIR = $(shell pwd)
 TOP_SRC_DIR = $(CUR_DIR)
 
-DEBUG_FLAGS ?= -g -Og
+DEBUG_FLAGS ?= -g -O0
 
 CFLAGS += -I $(TOP_SRC_DIR) -fPIC $(DEBUG_FLAGS)
 CXXFLAGS += -I $(TOP_SRC_DIR) -fPIC $(DEBUG_FLAGS)

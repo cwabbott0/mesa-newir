@@ -467,255 +467,57 @@ typedef struct {
    unsigned write_mask : 4; /* ignored if dest.is_ssa is true */
 } nir_alu_dest;
 
-typedef enum {
-   nir_unop_mov,
-   
-   nir_unop_inot, /* invert every bit of the integer */
-   nir_unop_fnot, /* (src == 0.0) ? 1.0 : 0.0 */
-   nir_unop_fneg,
-   nir_unop_ineg,
-   nir_unop_fabs,
-   nir_unop_iabs,
-   nir_unop_fsign,
-   nir_unop_isign,
-   nir_unop_frcp,
-   nir_unop_frsq,
-   nir_unop_fsqrt,
-   nir_unop_fexp, /* < e^x */
-   nir_unop_flog, /* log base e */
-   nir_unop_fexp2,
-   nir_unop_flog2,
-   nir_unop_f2i,         /**< Float-to-integer conversion. */
-   nir_unop_f2u,         /**< Float-to-unsigned conversion. */
-   nir_unop_i2f,         /**< Integer-to-float conversion. */
-   nir_unop_f2b,         /**< Float-to-boolean conversion */
-   nir_unop_b2f,         /**< Boolean-to-float conversion */
-   nir_unop_i2b,         /**< int-to-boolean conversion */
-   nir_unop_u2f,         /**< Unsigned-to-float conversion. */
-   
-   nir_unop_bany, /* returns ~0 if any component of src[0] != 0 */
-   nir_unop_ball, /* returns ~0 if all components of src[0] != 0 */
-   nir_unop_fany, /* returns 1.0 if any component of src[0] != 0 */
-   nir_unop_fall, /* returns 1.0 if all components of src[0] != 0 */
-   
-   /**
-    * \name Unary floating-point rounding operations.
-    */
-   /*@{*/
-   nir_unop_ftrunc,
-   nir_unop_fceil,
-   nir_unop_ffloor,
-   nir_unop_ffract,
-   nir_unop_fround_even,
-   /*@}*/
-   
-   /**
-    * \name Trigonometric operations.
-    */
-   /*@{*/
-   nir_unop_fsin,
-   nir_unop_fcos,
-   /*@}*/
-   
-   /**
-    * \name Partial derivatives.
-    */
-   /*@{*/
-   nir_unop_fddx,
-   nir_unop_fddy,
-   /*@}*/
-   
-   /**
-    * \name Floating point pack and unpack operations.
-    */
-   /*@{*/
-   nir_unop_pack_snorm_2x16,
-   nir_unop_pack_snorm_4x8,
-   nir_unop_pack_unorm_2x16,
-   nir_unop_pack_unorm_4x8,
-   nir_unop_pack_half_2x16,
-   nir_unop_unpack_snorm_2x16,
-   nir_unop_unpack_snorm_4x8,
-   nir_unop_unpack_unorm_2x16,
-   nir_unop_unpack_unorm_4x8,
-   nir_unop_unpack_half_2x16,
-   /*@}*/
-   
-   /**
-    * \name Lowered floating point unpacking operations.
-    */
-   /*@{*/
-   nir_unop_unpack_half_2x16_split_x,
-   nir_unop_unpack_half_2x16_split_y,
-   /*@}*/
-   
-  /**
-    * \name Bit operations, part of ARB_gpu_shader5.
-    */
-   /*@{*/
-   nir_unop_bitfield_reverse,
-   nir_unop_bit_count,
-   nir_unop_find_msb,
-   nir_unop_find_lsb,
-   /*@}*/
+#define OPCODE(name, num_inputs, per_component, output_size, input_sizes) \
+   nir_op_##name,
 
-   nir_unop_fnoise1,
-   nir_unop_fnoise2,
-   nir_unop_fnoise3,
-   nir_unop_fnoise4,
+#define LAST_OPCODE(name) nir_last_opcode = nir_op_##name,
+
+typedef enum {
+#include "opcodes.h"
+   nir_num_opcodes = nir_last_opcode + 1
+} nir_op;
+
+#undef OPCODE
+#undef LAST_OPCODE
+
+typedef struct {
+   const char *name;
    
-   nir_last_unop = nir_unop_fnoise4,
-   
-   nir_binop_fadd,
-   nir_binop_iadd,
-   nir_binop_fsub,
-   nir_binop_isub,
-   
-   nir_binop_fmul,
-   nir_binop_imul, /* low 32-bits of signed/unsigned integer multiply */
-   nir_binop_imul_high, /* high 32-bits of signed integer multiply */
-   nir_binop_umul_high, /* high 32-bits of unsigned integer multiply */
-   
-   nir_binop_fdiv,
-   nir_binop_idiv,
-   nir_binop_udiv,
+   unsigned num_inputs;
    
    /**
-    * returns a boolean representing the carry resulting from the addition of
-    * the two unsigned arguments.
-    */
-   nir_binop_uadd_carry,
-   
-   /**
-    * returns a boolean representing the borrow resulting from the subtraction
-    * of the two unsigned arguments.
-    */
-   nir_binop_usub_borrow,
-   
-   nir_binop_fmod,
-   
-   /**
-    * \name comparisons
-    */
-   /*@{*/
-   
-   /**
-    * these integer-aware comparisons return a boolean (0 or ~0)
-    */
-   nir_binop_flt,
-   nir_binop_fge,
-   nir_binop_feq,
-   nir_binop_fne,
-   nir_binop_ilt,
-   nir_binop_ige,
-   nir_binop_ieq,
-   nir_binop_ine,
-   nir_binop_ult,
-   nir_binop_uge,
-   
-   /**
-    * These comparisons for integer-less hardware return 1.0 and 0.0 for true
-    * and false respectively
-    */
-   nir_binop_slt, /* Set on Less Than */
-   nir_binop_sge, /* Set on Greater Than or Equal */
-   nir_binop_seq, /* Set on Equal */
-   nir_binop_sne, /* Set on Not Equal */
-   
-   /*@}*/
-   
-   nir_binop_ishl,
-   nir_binop_ishr,
-   nir_binop_ushr,
-   
-   /**
-    * \name bitwise logic operators
+    * If true, the opcode acts in the standard, per-component manner; the
+    * operation is performed on each component (except the ones that are masked
+    * out) with the input being taken from the input swizzle for that component.
     * 
-    * These are also used as boolean and, or, xor for hardware supporting
-    * integers.
-    */
-   /*@{*/
-   nir_binop_iand,
-   nir_binop_ior,
-   nir_binop_ixor,
-   /*@{*/
-   
-   /**
-    * \name floating point logic operators
+    * If false, the size of the output and inputs are explicitly given; swizzle
+    * and writemask are still in effect, but if the output component is masked
+    * out, then the input component may still be in use.
     * 
-    * These use (src != 0.0) for testing the truth of the input, and output 1.0
-    * for true and 0.0 for false
+    * The size of some of the inputs may be given (i.e. non-zero) even though
+    * per_component is false; in that case, each component of the input acts
+    * per-component, while the rest of the inputs and the output are normal.
+    * For example, for conditional select the condition is per-component but
+    * everything else is normal.
     */
-   nir_binop_fand,
-   nir_binop_for,
-   nir_binop_fxor,
-   
-   nir_binop_fdot2,
-   nir_binop_fdot3,
-   nir_binop_fdot4,
-   
-   nir_binop_fmin,
-   nir_binop_imin,
-   nir_binop_fmax,
-   nir_binop_imax,
-   nir_binop_umax,
-   
-   nir_binop_fpow,
-   
-   nir_binop_pack_half_2x16_split,
-   
-   nir_binop_bfm,
-   
-   nir_binop_ldexp,
-   
-   /* nir_binop_vector_extract, (ugly and appears to never be used in GLSL IR) */
+   bool per_component;
    
    /**
-    * Combines the first component of each input to make a 2-component vector.
+    * If per_component is false, the number of components in the output.
     */
-   nir_binop_vec2,
-   
-   nir_last_binop = nir_binop_vec2,
-   
-   nir_triop_ffma,
-   
-   nir_triop_flrp,
+   unsigned output_size;
    
    /**
-    * \name Conditional Select
-    *
-    * A vector conditional select instruction (like ?:, but operating per-
-    * component on vectors). There are two versions, one for floating point
-    * bools (0.0 vs 1.0) and one for integer bools (0 vs ~0).
+    * If per_component is false, the number of components in each input.
     */
-   
-   nir_triop_fcsel,
-   nir_triop_icsel,
-   
-   nir_triop_bitfield_insert,
-   
-   nir_triop_fvector_insert,
-   nir_triop_ivector_insert,
-   
-   /**
-    * Combines the first component of each input to make a 3-component vector.
-    */
-   nir_triop_vec3,
-   
-   nir_last_triop = nir_triop_vec3,
-   
-   nir_quadop_bitfield_insert,
-   
-   nir_quadop_vec4,
-   
-   nir_last_quadop = nir_quadop_vec4,
-   
-   nir_last_opcode = nir_quadop_vec4
-} nir_alu_op;
+   unsigned input_sizes[4];
+} nir_op_info;
+
+extern const nir_op_info nir_op_infos[nir_num_opcodes];
 
 typedef struct nir_alu_instr {
    nir_instr instr;
-   nir_alu_op op;
+   nir_op op;
    nir_dest dest;
    nir_src src[0];
 } nir_alu_instr;
@@ -769,7 +571,7 @@ typedef struct {
    has_const_index, is_load, is_reorderable_load) \
    nir_intrinsic_##name,
 
-#define LAST_INTRINSIC nir_last_intrinsic,
+#define LAST_INTRINSIC(name) nir_last_intrinsic = nir_intrinsic_##name,
 
 typedef enum {
 #include "intrinsics.h"

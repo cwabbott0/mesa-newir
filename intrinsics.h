@@ -26,13 +26,21 @@
  */
 
 /**
- * This file defines the list of all possible intrinsics. To use it, define the
- * macro INTRINSIC(...) and then include this file.
+ * This header file defines all the available intrinsics in one place. It
+ * expands to a list of macros of the form:
+ * 
+ * INTRINSIC(name, num_reg_inputs, reg_input_components, num_reg_outputs,
+ * 	     reg_output_components, num_variables, has_const_index, is_load,
+ * 	     is_reorderable_load)
+ * 
+ * Which should correspond one-to-one with the nir_intrinsic_info structure. It
+ * is included in both ir.h to create the nir_intrinsic enum (with members of
+ * the form nir_intrinsic_(name)) and and in opcodes.c to create
+ * nir_intrinsic_infos, which is a const array of nir_intrinsic_info structures
+ * for each intrinsic.
  */
 
 #define ARR(...) { __VA_ARGS__ }
-
-/* name, num_reg_inputs, reg_input_components, num_reg_outputs, reg_output_components, num_variables, has_const_index, is_load, is_reorderable_load */
 
 INTRINSIC(load_var_float,  1, ARR(1), 0, ARR(), 1, false, true, false)
 INTRINSIC(load_var_vec2,   1, ARR(2), 0, ARR(), 1, false, true, false)
@@ -44,4 +52,4 @@ INTRINSIC(store_var_vec3,  0, ARR(), 1, ARR(3), 1, false, false, false)
 INTRINSIC(store_var_vec4,  0, ARR(), 1, ARR(4), 1, false, false, false)
 INTRINSIC(copy_var,        0, ARR(), 0, ARR(),  2, false, false, false)
 
-LAST_INTRINSIC
+LAST_INTRINSIC(copy_var)

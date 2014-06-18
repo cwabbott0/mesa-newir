@@ -215,7 +215,7 @@ _mesa_hash_table_rehash(struct hash_table *ht, int new_size_index)
    struct hash_table old_ht;
    struct hash_entry *table, *entry;
 
-   if (new_size_index >= ARRAY_SIZE(hash_sizes))
+   if (new_size_index >= Elements(hash_sizes))
       return;
 
    table = rzalloc_array(ht, struct hash_entry,
