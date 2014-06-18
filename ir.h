@@ -764,18 +764,42 @@ typedef struct {
    const char *elem;
 } nir_deref_struct;
 
+#define INTRINSIC(name, num_reg_inputs, reg_input_components, \
+   num_reg_outputs, reg_output_components, num_variables, \
+   has_const_index, is_load, is_reorderable_load) \
+   nir_intrinsic_##name,
+
+#define LAST_INTRINSIC nir_last_intrinsic,
+
+typedef enum {
+#include "intrinsics.h"
+   nir_num_intrinsics = nir_last_intrinsic + 1
+} nir_intrinsic_op;
+
+#undef INTRINSIC
+#undef LAST_INTRINSIC
+
+typedef struct {
+   nir_instr instr;
+   nir_intrinsic_op intrinsic;
+   nir_src **reg_inputs;
+   nir_dest **reg_outputs;
+   nir_deref_var **variables;
+   int const_index;
+} nir_intrinsic_instr;
+
 typedef struct {
    const char *name;
    
    unsigned num_reg_inputs; /** < number of register/SSA inputs */
    
    /** number of components of each input register */
-   unsigned *reg_input_components;
+   unsigned reg_input_components[4];
    
    unsigned num_reg_outputs; /** < number of register/SSA outputs */
    
    /** number of components of each output register */
-   unsigned *reg_output_components;
+   unsigned reg_output_components[2];
    
    /** the number of inputs/outputs that are variables */
    unsigned num_variables;
@@ -788,16 +812,9 @@ typedef struct {
    
    /** true if calls to this intrinsic can be freely reordered */
    bool is_reorderable_load;
-} nir_intrinsic;
+} nir_intrinsic_info;
 
-typedef struct {
-   nir_instr instr;
-   nir_intrinsic *intrinsic;
-   nir_src **reg_inputs;
-   nir_dest **reg_outputs;
-   nir_deref_var **variables;
-   int const_index;
-} nir_intrinsic_instr;
+extern const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics];
 
 typedef struct {
    nir_instr instr;
