@@ -799,3 +799,46 @@ typedef struct nir_shader {
    unsigned reg_alloc;
 } nir_shader;
 
+nir_shader *nir_shader_create(void *mem_ctx);
+
+/** creates a register, including assigning it an index and adding it to the list */
+nir_register *nir_global_reg_create(nir_shader *shader);
+
+/** creates a function and adds it to the shader's list of functions */
+nir_function *nir_function_create(nir_shader *shader, const char *name);
+
+/** creates a null function returning null */
+nir_function_impl *nir_function_impl_create(nir_function *func);
+
+nir_block *nir_block_create(void *mem_ctx);
+nir_if *nir_if_create(void *mem_ctx);
+nir_loop *nir_loop_create(void *mem_ctx);
+
+/** puts a control flow node immediately after another control flow node */
+void nir_cf_node_insert_after(nir_cf_node *node, nir_cf_node *after);
+
+/** puts a control flow node immediately before another control flow node */
+void nir_cf_node_insert_before(nir_cf_node *node, nir_cf_node *before);
+
+/** puts a control flow node at the beginning of a list from an if, loop, or function */
+void nir_cf_node_insert_begin(struct exec_list *list, nir_cf_node *node);
+
+/** puts a control flow node at the end of a list from an if, loop, or function */
+void nir_cf_node_insert_end(struct exec_list *list, nir_cf_node *node);
+
+/** removes a control flow node, doing any cleanup necessary */
+void nir_cf_node_remove(nir_cf_node *node);
+
+/** creates an instruction with default swizzle/writemask/etc. with NULL registers */
+nir_alu_instr *nir_alu_instr_create(void *mem_ctx, nir_op op);
+
+nir_jump_instr *nir_jump_instr_create(void *mem_ctx, nir_jump_type type);
+
+void nir_instr_insert_before(nir_instr *instr, nir_instr *before);
+void nir_instr_insert_after(nir_instr *instr, nir_instr *after);
+
+void nir_instr_insert_before_cf(nir_cf_node *node, nir_instr *before);
+void nir_instr_insert_after_cf(nir_cf_node *node, nir_instr *after);
+
+void nir_instr_insert_before_cf_list(struct exec_list *list, nir_instr *before);
+void nir_instr_insert_after_cf_list(struct exec_list *list, nir_instr *after);
