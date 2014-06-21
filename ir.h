@@ -101,6 +101,12 @@ typedef enum {
 typedef struct {
    struct exec_node node;
    
+   /*
+    * node in the list of parameters - parameters are in the list of local
+    * variables and the list of parameters at the same time.
+    */
+   struct exec_node param_node;
+   
    /**
     * Declared type of the variable
     */
@@ -387,7 +393,7 @@ typedef struct {
 struct nir_src;
 
 typedef struct {
-   struct nir_register *reg;
+   nir_register *reg;
    struct nir_src *indirect; /** < NULL for no indirect offset */
    unsigned base_offset;
    
@@ -395,7 +401,7 @@ typedef struct {
 } nir_reg_src;
 
 typedef struct {
-   struct nir_register *reg;
+   nir_register *reg;
    struct nir_src *indirect; /** < NULL for no indirect offset */
    unsigned base_offset;
    
@@ -518,8 +524,8 @@ extern const nir_op_info nir_op_infos[nir_num_opcodes];
 typedef struct nir_alu_instr {
    nir_instr instr;
    nir_op op;
-   nir_dest dest;
-   nir_src src[0];
+   nir_alu_dest dest;
+   nir_alu_src src[];
 } nir_alu_instr;
 
 typedef struct {
@@ -584,8 +590,8 @@ typedef enum {
 typedef struct {
    nir_instr instr;
    nir_intrinsic_op intrinsic;
-   nir_src **reg_inputs;
-   nir_dest **reg_outputs;
+   nir_src *reg_inputs;
+   nir_dest *reg_outputs;
    nir_deref_var **variables;
    int const_index;
 } nir_intrinsic_instr;
@@ -661,6 +667,14 @@ typedef struct {
    nir_dest dest;
 } nir_phi_instr;
 
+#define nir_instr_as_alu(_instr) exec_node_data(nir_alu_instr, _instr, instr)
+#define nir_instr_as_jump(_instr) exec_node_data(nir_jump_instr, _instr, instr)
+#define nir_instr_as_intrinsic(_instr) \
+   exec_node_data(nir_intrinsic_instr, _instr, instr)
+#define nir_instr_as_load_const(_instr) \
+   exec_node_data(nir_load_const_instr, _instr, instr)
+
+
 /*
  * Control flow
  * 
@@ -703,6 +717,11 @@ typedef struct nir_block {
    struct hash_table *predecessors;
 } nir_block;
 
+#define nir_block_first_instr(block) \
+   exec_node_data(nir_instr, exec_list_get_head(&(block)->instr_list), node)
+#define nir_block_last_instr(block) \
+   exec_node_data(nir_instr, exec_list_get_tail(&(block)->instr_list), node)
+
 typedef struct {
    nir_cf_node cf_node;
    nir_src condition;
@@ -710,10 +729,24 @@ typedef struct {
    struct exec_list else_list;
 } nir_if;
 
+#define nir_if_first_then_node(if) \
+   exec_node_data(nir_cf_node, exec_list_get_head(&(if)->then_list), node)
+#define nir_if_last_then_node(if) \
+   exec_node_data(nir_cf_node, exec_list_get_tail(&(if)->then_list), node)
+#define nir_if_first_else_node(if) \
+   exec_node_data(nir_cf_node, exec_list_get_head(&(if)->else_list), node)
+#define nir_if_last_else_node(if) \
+   exec_node_data(nir_cf_node, exec_list_get_tail(&(if)->else_list), node)
+
 typedef struct {
    nir_cf_node cf_node;
    struct exec_list body;
 } nir_loop;
+
+#define nir_loop_first_cf_node(loop) \
+   exec_node_data(nir_cf_node, exec_list_get_head(&(loop)->body), node)
+#define nir_loop_last_cf_node(loop) \
+   exec_node_data(nir_cf_node, exec_list_get_tail(&(loop)->body), node)
 
 typedef struct {
    struct exec_node cf_node;
@@ -740,11 +773,29 @@ typedef struct {
    nir_variable *return_var;
    
    /** list of local registers in the function */
-   struct exec_list *registers;
+   struct exec_list registers;
    
    /** next available local register index */
    unsigned reg_alloc;
 } nir_function_impl;
+
+#define nir_cf_node_next(_node) \
+   exec_node_data(nir_cf_node, exec_node_get_next(&(_node)->node), node)
+
+#define nir_cf_node_prev(_node) \
+   exec_node_data(nir_cf_node, exec_node_get_next(&(_node)->node), node)
+
+#define nir_cf_node_as_block(node) \
+   exec_node_data(nir_block, node, cf_node)
+
+#define nir_cf_node_as_if(node) \
+   exec_node_data(nir_if, node, cf_node)
+
+#define nir_cf_node_as_loop(node) \
+   exec_node_data(nir_loop, node, cf_node)
+
+#define nir_cf_node_as_function(node) \
+   exec_node_data(nir_function_impl, node, cf_node)
 
 typedef enum {
    nir_parameter_in,
@@ -808,7 +859,9 @@ nir_register *nir_global_reg_create(nir_shader *shader);
 nir_function *nir_function_create(nir_shader *shader, const char *name);
 
 /** creates a null function returning null */
-nir_function_impl *nir_function_impl_create(nir_function *func);
+nir_function_overload *nir_function_overload_create(nir_function *func);
+
+nir_function_impl *nir_function_impl_create(nir_function_overload *func);
 
 nir_block *nir_block_create(void *mem_ctx);
 nir_if *nir_if_create(void *mem_ctx);
@@ -837,8 +890,13 @@ nir_jump_instr *nir_jump_instr_create(void *mem_ctx, nir_jump_type type);
 void nir_instr_insert_before(nir_instr *instr, nir_instr *before);
 void nir_instr_insert_after(nir_instr *instr, nir_instr *after);
 
+void nir_instr_insert_before_block(nir_block *block, nir_instr *before);
+void nir_instr_insert_after_block(nir_block *block, nir_instr *after);
+
 void nir_instr_insert_before_cf(nir_cf_node *node, nir_instr *before);
 void nir_instr_insert_after_cf(nir_cf_node *node, nir_instr *after);
 
 void nir_instr_insert_before_cf_list(struct exec_list *list, nir_instr *before);
 void nir_instr_insert_after_cf_list(struct exec_list *list, nir_instr *after);
+
+void nir_instr_remove(nir_instr *instr);

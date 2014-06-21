@@ -479,6 +479,13 @@ exec_list_append(struct exec_list *list, struct exec_list *source)
 }
 
 static inline void
+exec_list_prepend(struct exec_list *list, struct exec_list *source)
+{
+   exec_list_append(source, list);
+   exec_list_move_nodes_to(source, list);
+}
+
+static inline void
 exec_node_insert_list_before(struct exec_node *n, struct exec_list *before)
 {
    if (exec_list_is_empty(before))
