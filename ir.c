@@ -426,6 +426,7 @@ static nir_block *
 split_block_beginning(nir_block *block)
 {
    nir_block *new_block = nir_block_create(ralloc_parent(block));
+   new_block->cf_node.parent = block->cf_node.parent;
    exec_node_insert_node_before(&block->cf_node.node, &new_block->cf_node.node);
    
    struct hash_entry *entry;
@@ -463,6 +464,7 @@ static nir_block *
 split_block_end(nir_block *block)
 {
    nir_block *new_block = nir_block_create(ralloc_parent(block));
+   new_block->cf_node.parent = block->cf_node.parent;
    exec_node_insert_after(&block->cf_node.node, &new_block->cf_node.node);
    
    move_successors(block, new_block);
@@ -477,6 +479,7 @@ split_block_end(nir_block *block)
 static void
 insert_non_block(nir_block *before, nir_cf_node *node, nir_block *after)
 {
+   node->parent = before->cf_node.parent;
    exec_node_insert_after(&before->cf_node.node, &node->node);
    link_block_to_non_block(before, node);
    link_non_block_to_block(node, after);
