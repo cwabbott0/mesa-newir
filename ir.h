@@ -625,13 +625,28 @@ typedef struct {
 extern const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics];
 
 typedef struct {
-   nir_instr instr;
-   
    union {
       float f[4];
       int32_t i[4];
       uint32_t u[4];
    } value;
+} nir_const_value;
+
+typedef struct {
+   nir_instr instr;
+   
+   union {
+      nir_const_value value;
+      nir_const_value *array;
+   } value;
+   
+   /**
+    * The number of constant array elements to be copied into the variable. If
+    * this != 0, then value.array holds the array of size array_elems;
+    * otherwise, value.value holds the single vector constant (the more common
+    * case, and the only case for SSA destinations).
+    */
+   unsigned array_elems;
    
    nir_dest dest;
 } nir_load_const_instr;
