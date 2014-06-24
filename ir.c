@@ -38,6 +38,9 @@ nir_shader_create(void *mem_ctx)
    shader->outputs = _mesa_hash_table_create(shader, _mesa_key_string_equal);
    shader->globals = _mesa_hash_table_create(shader, _mesa_key_string_equal);
    
+   shader->num_user_structures = 0;
+   shader->user_structures = NULL;
+   
    exec_list_make_empty(&shader->functions);
    exec_list_make_empty(&shader->registers);
    shader->reg_alloc = 0;
@@ -163,9 +166,10 @@ nir_function_impl_create(nir_function_overload *overload)
    exec_list_make_empty(&impl->body);
    exec_list_make_empty(&impl->registers);
    exec_list_make_empty(&impl->locals);
-   exec_list_make_empty(&impl->parameters);
+   exec_list_make_empty(&impl->param_list);
    impl->return_var = NULL;
    impl->reg_alloc = 0;
+   impl->ssa_alloc = 0;
    
    /* create start & end blocks */
    nir_block *start_block = nir_block_create(mem_ctx);
@@ -203,9 +207,9 @@ static inline void
 src_init(nir_src *src)
 {
    src->is_ssa = false;
-   src->src.reg.reg = NULL;
-   src->src.reg.indirect = NULL;
-   src->src.reg.base_offset = 0;
+   src->reg.reg = NULL;
+   src->reg.indirect = NULL;
+   src->reg.base_offset = 0;
 }
 
 nir_if *
@@ -259,9 +263,9 @@ static void
 dest_init(nir_dest *dest)
 {
    dest->is_ssa = false;
-   dest->dest.reg.reg = NULL;
-   dest->dest.reg.indirect = NULL;
-   dest->dest.reg.base_offset = 0;
+   dest->reg.reg = NULL;
+   dest->reg.indirect = NULL;
+   dest->reg.base_offset = 0;
 }
 
 static void
@@ -757,12 +761,12 @@ add_use(nir_src *src, nir_instr *instr)
    if (src->is_ssa)
       return;
    
-   nir_register *reg = src->src.reg.reg;
+   nir_register *reg = src->reg.reg;
    
    _mesa_hash_table_insert(reg->uses, _mesa_hash_pointer(instr), instr, instr);
    
-   if (src->src.reg.indirect != NULL)
-      add_use(src->src.reg.indirect, instr);
+   if (src->reg.indirect != NULL)
+      add_use(src->reg.indirect, instr);
 }
 
 static void
@@ -771,12 +775,12 @@ add_def(nir_dest *dest, nir_instr *instr)
    if (dest->is_ssa)
       return;
    
-   nir_register *reg = dest->dest.reg.reg;
+   nir_register *reg = dest->reg.reg;
    
    _mesa_hash_table_insert(reg->defs, _mesa_hash_pointer(instr), instr, instr);
    
-   if (dest->dest.reg.indirect != NULL)
-      add_use(dest->dest.reg.indirect, instr);
+   if (dest->reg.indirect != NULL)
+      add_use(dest->reg.indirect, instr);
 }
 
 static void
@@ -909,7 +913,7 @@ remove_use(nir_src *src, nir_instr *instr)
    if (src->is_ssa)
       return;
    
-   nir_register *reg = src->src.reg.reg;
+   nir_register *reg = src->reg.reg;
    
    struct hash_entry *entry = _mesa_hash_table_search(reg->uses,
 						      _mesa_hash_pointer(instr),
@@ -917,8 +921,8 @@ remove_use(nir_src *src, nir_instr *instr)
    if (entry)
       _mesa_hash_table_remove(reg->uses, entry);
    
-   if (src->src.reg.indirect != NULL)
-      add_use(src->src.reg.indirect, instr);
+   if (src->reg.indirect != NULL)
+      add_use(src->reg.indirect, instr);
 }
 
 static void
@@ -927,7 +931,7 @@ remove_def(nir_dest *dest, nir_instr *instr)
    if (dest->is_ssa)
       return;
    
-   nir_register *reg = dest->dest.reg.reg;
+   nir_register *reg = dest->reg.reg;
    
    struct hash_entry *entry = _mesa_hash_table_search(reg->defs,
 						      _mesa_hash_pointer(instr),
@@ -935,8 +939,8 @@ remove_def(nir_dest *dest, nir_instr *instr)
    if (entry)
       _mesa_hash_table_remove(reg->defs, entry);
    
-   if (dest->dest.reg.indirect != NULL)
-      add_use(dest->dest.reg.indirect, instr);
+   if (dest->reg.indirect != NULL)
+      add_use(dest->reg.indirect, instr);
 }
 
 static void
@@ -993,3 +997,190 @@ void nir_instr_remove(nir_instr *instr)
 }
 
 /*@}*/
+
+void
+nir_index_local_regs(nir_function_impl *impl)
+{
+   unsigned index = 0;
+   foreach_list_typed(nir_register, reg, node, &impl->registers) {
+      reg->index = index++;
+   }
+}
+
+void
+nir_index_global_regs(nir_shader *shader)
+{
+   unsigned index = 0;
+   foreach_list_typed(nir_register, reg, node, &shader->registers) {
+      reg->index = index++;
+   }
+}
+
+static bool foreach_cf_node(nir_cf_node *node, nir_foreach_block_cb cb,
+			    void *state);
+
+static bool
+foreach_block(nir_block *block, nir_foreach_block_cb cb, void *state)
+{
+   return cb(block, state);
+}
+
+static bool
+foreach_if(nir_if *if_stmt, nir_foreach_block_cb cb, void *state)
+{
+   foreach_list_typed(nir_cf_node, node, node, &if_stmt->then_list) {
+      if (!foreach_cf_node(node, cb, state))
+	 return false;
+   }
+   
+   foreach_list_typed(nir_cf_node, node, node, &if_stmt->else_list) {
+      if (!foreach_cf_node(node, cb, state))
+	 return false;
+   }
+   
+   return true;
+}
+
+static bool
+foreach_loop(nir_loop *loop, nir_foreach_block_cb cb, void *state)
+{
+   foreach_list_typed(nir_cf_node, node, node, &loop->body) {
+      if (!foreach_cf_node(node, cb, state))
+	 return false;
+   }
+   
+   return true;
+}
+
+static bool
+foreach_cf_node(nir_cf_node *node, nir_foreach_block_cb cb, void *state)
+{
+   switch (node->type) {
+      case nir_cf_node_block:
+	 return foreach_block(nir_cf_node_as_block(node), cb, state);
+      case nir_cf_node_if:
+	 return foreach_if(nir_cf_node_as_if(node), cb, state);
+      case nir_cf_node_loop:
+	 return foreach_loop(nir_cf_node_as_loop(node), cb, state);
+	 break;
+	 
+      default:
+	 assert(0);
+	 break;
+   }
+   
+   return false;
+}
+
+bool
+nir_foreach_block(nir_function_impl *impl, nir_foreach_block_cb cb, void *state)
+{
+   foreach_list_typed(nir_cf_node, node, node, &impl->body) {
+      if (!foreach_cf_node(node, cb, state))
+	 return false;
+   }
+   
+   return true;
+}
+
+static bool
+index_block(nir_block *block, void *state)
+{
+   unsigned *index = (unsigned *) state;
+   block->index = (*index)++;
+}
+
+void
+nir_index_blocks(nir_function_impl *impl)
+{
+   unsigned index = 0;
+   
+   nir_foreach_block(impl, index_block, &index);
+}
+
+static void
+index_ssa_def(nir_ssa_def *def, unsigned *index)
+{
+   def->index = (*index)++;
+}
+
+static void
+index_alu_def(nir_alu_instr *instr, unsigned *index)
+{
+   if (instr->dest.dest.is_ssa)
+      index_ssa_def(&instr->dest.dest.ssa, index);
+}
+
+static void
+index_intrinsic_defs(nir_intrinsic_instr *instr, unsigned *index)
+{
+   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
+   for (unsigned i = 0; i < num_outputs; i++) {
+      if (instr->reg_outputs[i].is_ssa)
+	 index_ssa_def(&instr->reg_outputs[i].ssa, index);
+   }
+}
+
+static void
+index_load_const(nir_load_const_instr *instr, unsigned *index)
+{
+   if (instr->dest.is_ssa)
+      index_ssa_def(&instr->dest.ssa, index);
+}
+
+static void
+index_ssa_undef(nir_ssa_undef_instr *instr, unsigned *index)
+{
+   index_ssa_def(&instr->def, index);
+}
+
+static void
+index_phi_def(nir_phi_instr *instr, unsigned *index)
+{
+   if (instr->dest.is_ssa)
+      index_ssa_def(&instr->dest.ssa, index);
+}
+
+static bool
+index_ssa_block(nir_block *block, void *state)
+{
+   unsigned *index = (unsigned *) state;
+   
+   nir_foreach_instr(block, instr) {
+      switch (instr->type) {
+	 case nir_instr_type_alu:
+	    index_alu_def(nir_instr_as_alu(instr), index);
+	    break;
+	 case nir_instr_type_intrinsic:
+	    index_intrinsic_defs(nir_instr_as_intrinsic(instr), index);
+	    break;
+	 case nir_instr_type_load_const:
+	    index_load_const(nir_instr_as_load_const(instr), index);
+	    break;
+	 case nir_instr_type_ssa_undef:
+	    index_ssa_undef(nir_instr_as_ssa_undef(instr), index);
+	    break;
+	 case nir_instr_type_phi:
+	    index_phi_def(nir_instr_as_phi(instr), index);
+	    break;
+	    
+	 case nir_instr_type_call:
+	 case nir_instr_type_jump:
+	    break;
+	    
+	 default:
+	    assert(0);
+	    break;
+      }
+   }
+   
+   return true;
+}
+
+void
+nir_index_ssa_defs(nir_function_impl *impl)
+{
+   unsigned index = 0;
+   nir_foreach_block(impl, index_ssa_block, &index);
+}
+

@@ -32,6 +32,7 @@
 #include "GL/gl.h" /* GLenum */
 #include "ralloc.h"
 #include "ir_types.h"
+#include <stdio.h>
 
 struct nir_function_overload;
 struct nir_function;
@@ -101,12 +102,6 @@ typedef enum {
 typedef struct {
    struct exec_node node;
    
-   /*
-    * node in the list of parameters - parameters are in the list of local
-    * variables and the list of parameters at the same time.
-    */
-   struct exec_node param_node;
-   
    /**
     * Declared type of the variable
     */
@@ -115,7 +110,7 @@ typedef struct {
    /**
     * Declared name of the variable
     */
-   const char *name;
+   char *name;
 
    /**
     * For variables which satisfy the is_interface_instance() predicate, this
@@ -412,7 +407,7 @@ typedef struct nir_src {
    union {
       nir_reg_src reg;
       nir_ssa_def *ssa;
-   } src;
+   };
    
    bool is_ssa;
 } nir_src;
@@ -421,7 +416,7 @@ typedef struct {
    union {
       nir_reg_dest reg;
       nir_ssa_def ssa;
-   } dest;
+   };
    
    bool is_ssa;
 } nir_dest;
@@ -572,6 +567,12 @@ typedef struct {
    const char *elem;
 } nir_deref_struct;
 
+#define nir_deref_as_var(_deref) exec_node_data(nir_deref_var, _deref, deref)
+#define nir_deref_as_array(_deref) \
+   exec_node_data(nir_deref_array, _deref, deref)
+#define nir_deref_as_struct(_deref) \
+   exec_node_data(nir_deref_struct, _deref, deref)
+
 #define INTRINSIC(name, num_reg_inputs, reg_input_components, \
    num_reg_outputs, reg_output_components, num_variables, \
    has_const_index, is_load, is_reorderable_load) \
@@ -629,7 +630,7 @@ typedef struct {
       float f[4];
       int32_t i[4];
       uint32_t u[4];
-   } value;
+   };
 } nir_const_value;
 
 typedef struct {
@@ -638,7 +639,7 @@ typedef struct {
    union {
       nir_const_value value;
       nir_const_value *array;
-   } value;
+   };
    
    /**
     * The number of constant array elements to be copied into the variable. If
@@ -683,11 +684,16 @@ typedef struct {
 } nir_phi_instr;
 
 #define nir_instr_as_alu(_instr) exec_node_data(nir_alu_instr, _instr, instr)
+#define nir_instr_as_call(_instr) exec_node_data(nir_call_instr, _instr, instr)
 #define nir_instr_as_jump(_instr) exec_node_data(nir_jump_instr, _instr, instr)
 #define nir_instr_as_intrinsic(_instr) \
    exec_node_data(nir_intrinsic_instr, _instr, instr)
 #define nir_instr_as_load_const(_instr) \
    exec_node_data(nir_load_const_instr, _instr, instr)
+#define nir_instr_as_ssa_undef(_instr) \
+   exec_node_data(nir_ssa_undef_instr, _instr, instr)
+#define nir_instr_as_phi(_instr) \
+   exec_node_data(nir_phi_instr, _instr, instr)
 
 
 /*
@@ -723,6 +729,8 @@ typedef struct nir_block {
    nir_cf_node cf_node;
    struct exec_list instr_list;
    
+   unsigned index;
+   
    /*
     * Each block can only have up to 2 successors, so we put them in a simple
     * array - no need for anything more complicated.
@@ -736,6 +744,9 @@ typedef struct nir_block {
    exec_node_data(nir_instr, exec_list_get_head(&(block)->instr_list), node)
 #define nir_block_last_instr(block) \
    exec_node_data(nir_instr, exec_list_get_tail(&(block)->instr_list), node)
+
+#define nir_foreach_instr(block, instr) \
+   foreach_list_typed(nir_instr, instr, node, &(block)->instr_list)
 
 typedef struct {
    nir_cf_node cf_node;
@@ -764,8 +775,8 @@ typedef struct {
    exec_node_data(nir_cf_node, exec_list_get_tail(&(loop)->body), node)
 
 typedef struct {
-   struct exec_node cf_node;
-   struct nir_variable *var;
+   struct exec_node node;
+   nir_variable *var;
 } nir_parameter_variable;
 
 typedef struct {
@@ -782,7 +793,7 @@ typedef struct {
    struct exec_list locals;
    
    /** list of variables used as parameters, i.e. nir_parameter_variable */
-   struct exec_list parameters;
+   struct exec_list param_list;
    
    /** variable used to hold the result of the function */
    nir_variable *return_var;
@@ -792,6 +803,9 @@ typedef struct {
    
    /** next available local register index */
    unsigned reg_alloc;
+   
+   /** next available SSA value index */
+   unsigned ssa_alloc;
 } nir_function_impl;
 
 #define nir_cf_node_next(_node) \
@@ -861,6 +875,10 @@ typedef struct nir_shader {
    /** list of global registers in the shader */
    struct exec_list registers;
    
+   /** structures used in this shader */
+   unsigned num_user_structures;
+   struct glsl_type **user_structures;
+   
    /** next available global register index */
    unsigned reg_alloc;
 } nir_shader;
@@ -915,3 +933,16 @@ void nir_instr_insert_before_cf_list(struct exec_list *list, nir_instr *before);
 void nir_instr_insert_after_cf_list(struct exec_list *list, nir_instr *after);
 
 void nir_instr_remove(nir_instr *instr);
+
+/* visits basic blocks in source-code order */
+typedef bool (*nir_foreach_block_cb)(nir_block *block, void *state);
+bool nir_foreach_block(nir_function_impl *impl, nir_foreach_block_cb cb,
+		       void *state);
+
+void nir_index_local_regs(nir_function_impl *impl);
+void nir_index_global_regs(nir_shader *shader);
+void nir_index_ssa_defs(nir_function_impl *impl);
+
+void nir_index_blocks(nir_function_impl *impl);
+
+void nir_print_shader(nir_shader *shader, FILE *fp);

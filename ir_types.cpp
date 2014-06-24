@@ -1,5 +1,5 @@
 /*
- * Copyright © 2014 Connor Abbott
+ * Copyright © 2014 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,22 +25,43 @@
  *
  */
 
-#pragma once
+#include "ir_types.h"
+#include "glsl_types.h"
 
-/* C wrapper around glsl_types.h */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdio.h>
-
-struct glsl_type;
-
-void glsl_print_type(const struct glsl_type *type, FILE *fp);
-void glsl_print_struct(const struct glsl_type *type, FILE *fp);
-
-#ifdef __cplusplus
+/*
+ * copied from ir.h, don't want to include it here yet...
+ */
+static inline bool
+is_gl_identifier(const char *s)
+{
+   return s && s[0] == 'g' && s[1] == 'l' && s[2] == '_';
 }
-#endif
+
+void
+glsl_print_type(const glsl_type *type, FILE *fp)
+{
+   if (type->base_type == GLSL_TYPE_ARRAY) {
+      glsl_print_type(type->fields.array, fp);
+      fprintf(fp, "[%u]", type->length);
+   } else if ((type->base_type == GLSL_TYPE_STRUCT)
+              && !is_gl_identifier(type->name)) {
+      fprintf(fp, "%s@%p", type->name, (void *) type, fp);
+   } else {
+      fprintf(fp, "%s", type->name, fp);
+   }
+}
+
+void
+glsl_print_struct(glsl_type *type, FILE *fp)
+{
+   assert(type->base_type == GLSL_TYPE_STRUCT);
    
+   fprintf(fp, "struct {\n");
+   for (unsigned i = 0; i < type->length; i++) {
+      fprintf(fp, "\t");
+      glsl_print_type(type->fields.structure[i].type, fp);
+      fprintf(fp, " %s;\n", type->fields.structure[i].name);
+   }
+   fprintf(fp, "}\n");
+}
+
