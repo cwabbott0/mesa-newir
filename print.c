@@ -574,7 +574,7 @@ print_if(nir_if *if_stmt, print_var_state *state, unsigned tabs, FILE *fp)
       print_cf_node(node, state, tabs + 1, fp);
    }
    print_tabs(tabs, fp);
-   fprintf(fp, "}");
+   fprintf(fp, "}\n");
 }
 
 static void
@@ -586,7 +586,7 @@ print_loop(nir_loop *loop, print_var_state *state, unsigned tabs, FILE *fp)
       print_cf_node(node, state, tabs + 1, fp);
    }
    print_tabs(tabs, fp);
-   fprintf(fp, "}");
+   fprintf(fp, "}\n");
 }
 
 static void

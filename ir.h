@@ -823,7 +823,7 @@ typedef struct {
    exec_node_data(nir_cf_node, exec_node_get_next(&(_node)->node), node)
 
 #define nir_cf_node_prev(_node) \
-   exec_node_data(nir_cf_node, exec_node_get_next(&(_node)->node), node)
+   exec_node_data(nir_cf_node, exec_node_get_prev(&(_node)->node), node)
 
 #define nir_cf_node_as_block(node) \
    exec_node_data(nir_block, node, cf_node)
@@ -899,6 +899,8 @@ nir_shader *nir_shader_create(void *mem_ctx);
 /** creates a register, including assigning it an index and adding it to the list */
 nir_register *nir_global_reg_create(nir_shader *shader);
 
+nir_register *nir_local_reg_create(nir_function_impl *impl);
+
 /** creates a function and adds it to the shader's list of functions */
 nir_function *nir_function_create(nir_shader *shader, const char *name);
 
@@ -930,6 +932,8 @@ void nir_cf_node_remove(nir_cf_node *node);
 nir_alu_instr *nir_alu_instr_create(void *mem_ctx, nir_op op);
 
 nir_jump_instr *nir_jump_instr_create(void *mem_ctx, nir_jump_type type);
+
+nir_load_const_instr *nir_load_const_instr_create(void *mem_ctx);
 
 void nir_instr_insert_before(nir_instr *instr, nir_instr *before);
 void nir_instr_insert_after(nir_instr *instr, nir_instr *after);

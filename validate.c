@@ -423,6 +423,10 @@ validate_block(nir_block *block, validate_state *state)
 	        nir_instr_prev(instr)->type == nir_instr_type_phi);
       }
       
+      if (instr->type == nir_instr_type_jump) {
+	 assert(instr == nir_block_last_instr(block));
+      }
+      
       validate_instr(instr, state);
    }
    

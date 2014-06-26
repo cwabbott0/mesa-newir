@@ -48,23 +48,42 @@ nir_shader_create(void *mem_ctx)
    return shader;
 }
 
-nir_register *
-nir_global_reg_create(nir_shader *shader)
+static nir_register *
+reg_create(void *mem_ctx)
 {
-   nir_register *reg = ralloc(shader, nir_register);
+   nir_register *reg = ralloc(mem_ctx, nir_register);
    
-   reg->uses = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
-   reg->defs = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
-   reg->if_uses = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
+   reg->uses = _mesa_hash_table_create(mem_ctx, _mesa_key_pointer_equal);
+   reg->defs = _mesa_hash_table_create(mem_ctx, _mesa_key_pointer_equal);
+   reg->if_uses = _mesa_hash_table_create(mem_ctx, _mesa_key_pointer_equal);
    
-   reg->is_global = true;
    reg->num_components = 0;
    reg->num_array_elems = 0;
-   reg->index = shader->reg_alloc++;
    reg->name = NULL;
    
    return reg;
 }
+
+nir_register *
+nir_global_reg_create(nir_shader *shader)
+{
+   nir_register *reg = reg_create(shader);
+   reg->index = shader->reg_alloc++;
+   reg->is_global = true;
+   
+   return reg;
+}
+
+nir_register *
+nir_local_reg_create(nir_function_impl *impl)
+{
+   nir_register *reg = reg_create(ralloc_parent(impl));
+   reg->index = impl->reg_alloc++;
+   reg->is_global = false;
+   
+   return reg;
+}
+
 
 nir_function *
 nir_function_create(nir_shader *shader, const char *name)
@@ -319,6 +338,22 @@ nir_jump_instr_create(void *mem_ctx, nir_jump_type type)
    return instr;
 }
 
+nir_load_const_instr *
+nir_load_const_instr_create(void *mem_ctx)
+{
+   nir_load_const_instr *instr = ralloc(mem_ctx, nir_load_const_instr);
+   instr_init(&instr->instr, nir_instr_type_load_const);
+   
+   dest_init(&instr->dest);
+   instr->array_elems = 0;
+   
+   instr->has_predicate = false;
+   src_init(&instr->predicate);
+   
+   return instr;
+}
+
+
 /**
  * \name Control flow modification
  * 
@@ -378,7 +413,6 @@ link_non_block_to_block(nir_cf_node *node, nir_block *block)
        * is reasonable, since it doesn't make much sense to call this function
        * in another situation anywyays.
        */
-      exec_node_insert_after(&node->node, &block->cf_node.node);
    }
 }
 
@@ -556,7 +590,7 @@ handle_jump(nir_block *block)
        jump_instr->type == nir_jump_continue) {
       nir_loop *loop = nearest_loop(&block->cf_node);
    
-      if (jump_instr->type == nir_jump_break) {
+      if (jump_instr->type == nir_jump_continue) {
 	 nir_cf_node *first_node = nir_loop_first_cf_node(loop);
 	 assert(first_node->type == nir_cf_node_block);
 	 nir_block *first_block = nir_cf_node_as_block(first_node);
@@ -570,6 +604,56 @@ handle_jump(nir_block *block)
    } else {
       nir_function_impl *impl = get_function(&block->cf_node);
       link_blocks(block, impl->end_block, NULL);
+   }
+}
+
+static void
+handle_remove_jump(nir_block *block)
+{
+   unlink_block_successors(block);
+   
+   if (exec_node_is_tail_sentinel(&block->cf_node.node)) {
+      nir_cf_node *parent = block->cf_node.parent;
+      if (parent->type == nir_cf_node_if) {
+	 nir_cf_node *next = nir_cf_node_next(parent);
+	 assert(next->type == nir_cf_node_block);
+	 nir_block *next_block = nir_cf_node_as_block(next);
+	 
+	 link_blocks(block, next_block, NULL);
+      } else {
+	 assert(parent->type == nir_cf_node_loop);
+	 nir_loop *loop = nir_cf_node_as_loop(parent);
+	 
+	 nir_cf_node *head = nir_loop_first_cf_node(loop);
+	 assert(head->type == nir_cf_node_block);
+	 nir_block *head_block = nir_cf_node_as_block(head);
+	 
+	 link_blocks(block, head_block, NULL);
+      }
+   } else {
+      nir_cf_node *next = nir_cf_node_next(&block->cf_node);
+      if (next->type == nir_cf_node_if) {
+	 nir_if *next_if = nir_cf_node_as_if(next);
+	 
+	 nir_cf_node *first_then = nir_if_first_then_node(next_if);
+	 assert(first_then->type == nir_cf_node_block);
+	 nir_block *first_then_block = nir_cf_node_as_block(first_then);
+	 
+	 nir_cf_node *first_else = nir_if_first_else_node(next_if);
+	 assert(first_else->type == nir_cf_node_block);
+	 nir_block *first_else_block = nir_cf_node_as_block(first_else);
+	 
+	 link_blocks(block, first_then_block, first_else_block);
+      } else {
+	 assert(next->type == nir_cf_node_loop);
+	 nir_loop *next_loop = nir_cf_node_as_loop(next);
+	 
+	 nir_cf_node *first = nir_loop_first_cf_node(next_loop);
+	 assert(first->type == nir_cf_node_block);
+	 nir_block *first_block = nir_cf_node_as_block(first);
+	 
+	 link_blocks(block, first_block, NULL);
+      }
    }
 }
 
@@ -628,6 +712,7 @@ update_if_uses(nir_cf_node *node)
       return;
    
    nir_register *reg = if_stmt->condition.reg.reg;
+   assert(reg != NULL);
    
    _mesa_hash_table_insert(reg->if_uses, _mesa_hash_pointer(if_stmt), if_stmt,
 			   if_stmt);
@@ -879,6 +964,7 @@ add_defs_uses(nir_instr *instr)
 void
 nir_instr_insert_before(nir_instr *instr, nir_instr *before)
 {
+   assert(before->type != nir_instr_type_jump);
    before->block = instr->block;
    add_defs_uses(before);
    exec_node_insert_node_before(&instr->node, &before->node);
@@ -887,27 +973,49 @@ nir_instr_insert_before(nir_instr *instr, nir_instr *before)
 void
 nir_instr_insert_after(nir_instr *instr, nir_instr *after)
 {
+   if (after->type == nir_instr_type_jump) {
+      assert(instr == nir_block_last_instr(instr->block));
+      assert(instr->type != nir_instr_type_jump);
+   }
+   
    after->block = instr->block;
    add_defs_uses(after);
    exec_node_insert_after(&instr->node, &after->node);
+   
+   if (after->type == nir_instr_type_jump)
+      handle_jump(after->block);
 }
 
 void
 nir_instr_insert_before_block(nir_block *block, nir_instr *before)
 {
+   if (before->type == nir_instr_type_jump)
+      assert(exec_list_is_empty(&block->instr_list));
+   
    before->block = block;
    add_defs_uses(before);
    exec_node_insert_after((struct exec_node *) &block->instr_list.head,
 			  &before->node);
+   
+   if (before->type == nir_instr_type_jump)
+      handle_jump(block);
 }
 
 void
 nir_instr_insert_after_block(nir_block *block, nir_instr *after)
 {
+   if (after->type == nir_instr_type_jump) {
+      assert(exec_list_is_empty(&block->instr_list) ||
+	     nir_block_last_instr(block)->type != nir_instr_type_jump);
+   }
+   
    after->block = block;
    add_defs_uses(after);
    exec_node_insert_node_before((struct exec_node *) &block->instr_list.tail,
 				&after->node);
+   
+   if (after->type == nir_instr_type_jump)
+      handle_jump(block);
 }
 
 void
@@ -1061,6 +1169,9 @@ void nir_instr_remove(nir_instr *instr)
 {
    remove_defs_uses(instr);
    exec_node_remove(&instr->node);
+   
+   if (instr->type == nir_instr_type_jump)
+      handle_remove_jump(instr->block);
 }
 
 /*@}*/

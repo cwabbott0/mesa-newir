@@ -34,8 +34,25 @@ int main(void)
    nir_function_overload *overload = nir_function_overload_create(func);
    nir_function_impl *impl = nir_function_impl_create(overload);
    
+   nir_loop *loop = nir_loop_create(shader);
+   nir_cf_node_insert_begin(&impl->body, &loop->cf_node);
+   
+   nir_register *reg = nir_local_reg_create(impl);
+   reg->num_components = 1;
+   
+   nir_load_const_instr *instr = nir_load_const_instr_create(shader);
+   instr->dest.reg.reg = reg;
+   instr->value.u[0] = ~0;
+   
+   nir_if *if_stmt = nir_if_create(shader);
+   if_stmt->condition.reg.reg = reg;
+   nir_cf_node_insert_begin(&loop->body, &if_stmt->cf_node);
+   
+   nir_jump_instr *break_instr = nir_jump_instr_create(shader, nir_jump_break);
+   nir_instr_insert_after_cf_list(&if_stmt->then_list, &break_instr->instr);
+   
    nir_validate_shader(shader);
-   nir_print_shader(shader, stdout);
+   nir_print_shader(shader, stdout);   
    
    ralloc_free(shader);
    
