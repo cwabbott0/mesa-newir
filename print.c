@@ -169,6 +169,12 @@ print_alu_dest(nir_alu_dest *dest, FILE *fp)
 static void
 print_alu_instr(nir_alu_instr *instr, FILE *fp)
 {
+   if (instr->has_predicate) {
+      fprintf(fp, "(");
+      print_src(&instr->predicate, fp);
+      fprintf(fp, ") ");
+   }
+   
    print_alu_dest(&instr->dest, fp);
    
    fprintf(fp, " = %s", nir_op_infos[instr->op].name);
@@ -283,12 +289,17 @@ print_deref(nir_deref *deref, print_var_state *state, FILE *fp)
 static void
 print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
 		      FILE *fp)
-{  
+{
    unsigned num_dests = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
    unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
    
+   if (instr->has_predicate) {
+      fprintf(fp, "(");
+      print_src(&instr->predicate, fp);
+      fprintf(fp, ") ");
+   }
+   
    bool first = true;
-   fprintf(fp, "(");
    for (unsigned i = 0; i < num_dests; i++) {
       if (!first)
 	 fprintf(fp, ", ");
@@ -297,7 +308,6 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
       
       first = false;
    }
-   fprintf(fp, ")");
    
    fprintf(fp, " = instrinsic %s (", nir_intrinsic_infos[instr->intrinsic].name);
    
@@ -334,14 +344,25 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
 static void
 print_call_instr(nir_call_instr *instr, print_var_state *state, FILE *fp)
 {
-   fprintf(fp, "call %s ", instr->callee->function->name);
-   
-   foreach_list_typed(nir_call_param, param, node, &instr->param_list) {
-      print_var(param->var, state, fp);
-      fprintf(fp, ", ");
+   if (instr->has_predicate) {
+      fprintf(fp, "(");
+      print_src(&instr->predicate, fp);
+      fprintf(fp, ") ");
    }
    
-   print_var(instr->return_var, state, fp);
+   fprintf(fp, "call %s ", instr->callee->function->name);
+   
+   for (unsigned i = 0; i < instr->num_params; i++) {
+      if (i != 0)
+	 fprintf(fp, ", ");
+      
+      print_var(instr->params[i], state, fp);
+   }
+   
+   if (instr->return_var != NULL) {
+      fprintf(fp, ", returning ");
+      print_var(instr->return_var, state, fp);
+   }
 }
 
 static void
@@ -371,6 +392,12 @@ print_const_value(nir_const_value value, unsigned num_components, FILE *fp)
 static void
 print_load_const_instr(nir_load_const_instr *instr, unsigned tabs, FILE *fp)
 {
+   if (instr->has_predicate) {
+      fprintf(fp, "(");
+      print_src(&instr->predicate, fp);
+      fprintf(fp, ") ");
+   }
+   
    print_dest(&instr->dest, fp);
    
    fprintf(fp, " = load_const ");
@@ -588,14 +615,11 @@ print_function_impl(nir_function_impl *impl, print_var_state *state, FILE *fp)
 {
    fprintf(fp, "impl %s ", impl->overload->function->name);
    
-   bool first = true;
-   foreach_list_typed(nir_parameter_variable, param, node, &impl->param_list) {
-      if (!first)
+   for (unsigned i = 0; i < impl->num_params; i++) {
+      if (i != 0)
 	 fprintf(fp, ", ");
       
-      print_var(param->var, state, fp);
-      
-      first = false;
+      print_var(impl->params[i], state, fp);
    }
    
    if (impl->return_var != NULL) {
@@ -633,12 +657,11 @@ print_function_overload(nir_function_overload *overload,
 {
    fprintf(fp, "decl_overload %s ", overload->function->name);
    
-   bool first = true;
-   foreach_list_typed(nir_parameter, param, node, &overload->param_list) {
-      if (!first)
+   for (unsigned i = 0; i < overload->num_params; i++) {
+      if (i != 0)
 	 fprintf(fp, ", ");
       
-      switch (param->param_type) {
+      switch (overload->params[i].param_type) {
 	 case nir_parameter_in:
 	    fprintf(fp, "in ");
 	    break;
@@ -653,9 +676,7 @@ print_function_overload(nir_function_overload *overload,
 	    break;
       }
       
-      glsl_print_type(param->type, fp);
-      
-      first = false;
+      glsl_print_type(overload->params[i].type, fp);
    }
    
    if (overload->return_type != NULL) {

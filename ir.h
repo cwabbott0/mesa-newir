@@ -353,6 +353,9 @@ typedef struct {
    
    /** set of nir_instr's where this register is defined (written to) */
    struct hash_table *defs;
+   
+   /** set of ifs where this register is used as a condition */
+   struct hash_table *if_uses;
 } nir_register;
 
 typedef enum {
@@ -370,6 +373,12 @@ typedef struct {
    nir_instr_type type;
    struct nir_block *block;
 } nir_instr;
+
+#define nir_instr_next(instr) \
+   exec_node_data(nir_instr, (instr)->node.next, node)
+
+#define nir_instr_prev(instr) \
+   exec_node_data(nir_instr, (instr)->node.prev, node)
 
 typedef struct {
    /** for debugging only, can be NULL */
@@ -519,20 +528,21 @@ extern const nir_op_info nir_op_infos[nir_num_opcodes];
 typedef struct nir_alu_instr {
    nir_instr instr;
    nir_op op;
+   bool has_predicate;
+   nir_src predicate;
    nir_alu_dest dest;
    nir_alu_src src[];
 } nir_alu_instr;
 
 typedef struct {
-   struct exec_node node;
-   nir_variable *var;
-} nir_call_param;
-
-typedef struct {
    nir_instr instr;
    
-   struct exec_list param_list; /** < list of nir_call_param */
+   unsigned num_params;
+   nir_variable **params;
    nir_variable *return_var;
+   
+   bool has_predicate;
+   nir_src predicate;
    
    struct nir_function_overload *callee;
 } nir_call_instr;
@@ -594,6 +604,8 @@ typedef struct {
    nir_src *reg_inputs;
    nir_dest *reg_outputs;
    nir_deref_var **variables;
+   bool has_predicate;
+   nir_src predicate;
    int const_index;
 } nir_intrinsic_instr;
 
@@ -648,6 +660,9 @@ typedef struct {
     * case, and the only case for SSA destinations).
     */
    unsigned array_elems;
+   
+   bool has_predicate;
+   nir_src predicate;
    
    nir_dest dest;
 } nir_load_const_instr;
@@ -775,11 +790,6 @@ typedef struct {
    exec_node_data(nir_cf_node, exec_list_get_tail(&(loop)->body), node)
 
 typedef struct {
-   struct exec_node node;
-   nir_variable *var;
-} nir_parameter_variable;
-
-typedef struct {
    nir_cf_node cf_node;
    
    /** pointer to the overload of which this is an implementation */
@@ -792,8 +802,9 @@ typedef struct {
    /** list for all local variables in the function */
    struct exec_list locals;
    
-   /** list of variables used as parameters, i.e. nir_parameter_variable */
-   struct exec_list param_list;
+   /** array of variables used as parameters */
+   unsigned num_params;
+   nir_variable **params;
    
    /** variable used to hold the result of the function */
    nir_variable *return_var;
@@ -833,7 +844,6 @@ typedef enum {
 } nir_parameter_type;
 
 typedef struct {
-   struct exec_node node;
    nir_parameter_type param_type;
    struct glsl_type *type;
 } nir_parameter;
@@ -841,7 +851,8 @@ typedef struct {
 typedef struct nir_function_overload {
    struct exec_node node;
    
-   struct exec_list param_list;
+   unsigned num_params;
+   nir_parameter *params;
    struct glsl_type *return_type;
    
    nir_function_impl *impl; /** < NULL if the overload is only declared yet */

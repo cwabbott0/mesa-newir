@@ -55,6 +55,7 @@ nir_global_reg_create(nir_shader *shader)
    
    reg->uses = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
    reg->defs = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
+   reg->if_uses = _mesa_hash_table_create(shader, _mesa_key_pointer_equal);
    
    reg->is_global = true;
    reg->num_components = 0;
@@ -84,7 +85,8 @@ nir_function_overload_create(nir_function *func)
    
    nir_function_overload *overload = ralloc(mem_ctx, nir_function_overload);
    
-   exec_list_make_empty(&overload->param_list);
+   overload->num_params = 0;
+   overload->params = NULL;
    overload->return_type = NULL;
    
    exec_list_push_tail(&func->overload_list, &overload->node);
@@ -166,7 +168,8 @@ nir_function_impl_create(nir_function_overload *overload)
    exec_list_make_empty(&impl->body);
    exec_list_make_empty(&impl->registers);
    exec_list_make_empty(&impl->locals);
-   exec_list_make_empty(&impl->param_list);
+   impl->num_params = 0;
+   impl->params = NULL;
    impl->return_var = NULL;
    impl->reg_alloc = 0;
    impl->ssa_alloc = 0;
@@ -300,6 +303,9 @@ nir_alu_instr_create(void *mem_ctx, nir_op op)
    alu_dest_init(&instr->dest);
    for (unsigned i = 0; i < num_srcs; i++)
       alu_src_init(&instr->src[i]);
+   
+   instr->has_predicate = false;
+   src_init(&instr->predicate);
    
    return instr;
 }
@@ -611,9 +617,27 @@ insert_block_after_block(nir_block *block, nir_block *after, bool has_jump)
       handle_jump(block);
 }
 
+static void
+update_if_uses(nir_cf_node *node)
+{
+   if (node->type != nir_cf_node_if)
+      return;
+   
+   nir_if *if_stmt = nir_cf_node_as_if(node);
+   if (if_stmt->condition.is_ssa)
+      return;
+   
+   nir_register *reg = if_stmt->condition.reg.reg;
+   
+   _mesa_hash_table_insert(reg->if_uses, _mesa_hash_pointer(if_stmt), if_stmt,
+			   if_stmt);
+}
+
 void
 nir_cf_node_insert_after(nir_cf_node *node, nir_cf_node *after)
 {
+   update_if_uses(after);
+   
    if (after->type == nir_cf_node_block) {
       /*
        * either node or the one after it must be a basic block, by invariant #2;
@@ -656,6 +680,8 @@ nir_cf_node_insert_after(nir_cf_node *node, nir_cf_node *after)
 void
 nir_cf_node_insert_before(nir_cf_node *node, nir_cf_node *before)
 {
+   update_if_uses(before);
+   
    if (before->type == nir_cf_node_block) {
       nir_block *before_block = nir_cf_node_as_block(before);
       
@@ -789,6 +815,9 @@ add_defs_uses_alu(nir_alu_instr *instr)
    add_def(&instr->dest.dest, &instr->instr);
    for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
       add_use(&instr->src[i].src, &instr->instr);
+   
+   if (instr->has_predicate)
+      add_use(&instr->predicate, &instr->instr);
 }
 
 static void
@@ -801,12 +830,25 @@ add_defs_uses_intrinsic(nir_intrinsic_instr *instr)
    unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
    for (unsigned i = 0; i < num_outputs; i++)
       add_def(&instr->reg_outputs[i], &instr->instr);
+   
+   if (instr->has_predicate)
+      add_use(&instr->predicate, &instr->instr);
+}
+
+static void
+add_defs_uses_call(nir_call_instr *instr)
+{
+   if (instr->has_predicate)
+      add_use(&instr->predicate, &instr->instr);
 }
 
 static void
 add_defs_uses_load_const(nir_load_const_instr *instr)
 {
    add_def(&instr->dest, &instr->instr);
+   
+   if (instr->has_predicate)
+      add_use(&instr->predicate, &instr->instr);
 }
 
 static void
@@ -820,6 +862,11 @@ add_defs_uses(nir_instr *instr)
       case nir_instr_type_intrinsic:
 	 add_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
 	 break;
+	 
+      case nir_instr_type_call:
+	 add_defs_uses_call(nir_instr_as_call(instr));
+	 break;
+	 
       case nir_instr_type_load_const:
 	 add_defs_uses_load_const(nir_instr_as_load_const(instr));
 	 break;
@@ -949,6 +996,9 @@ remove_defs_uses_alu(nir_alu_instr *instr)
    remove_def(&instr->dest.dest, &instr->instr);
    for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
       remove_use(&instr->src[i].src, &instr->instr);
+   
+   if (instr->has_predicate)
+      remove_use(&instr->predicate, &instr->instr);
 }
 
 static void
@@ -961,12 +1011,25 @@ remove_defs_uses_intrinsic(nir_intrinsic_instr *instr)
    unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
    for (unsigned i = 0; i < num_outputs; i++)
       remove_def(&instr->reg_outputs[i], &instr->instr);
+   
+   if (instr->has_predicate)
+      remove_use(&instr->predicate, &instr->instr);
+}
+
+static void
+remove_defs_uses_call(nir_call_instr *instr)
+{
+   if (instr->has_predicate)
+      remove_use(&instr->predicate, &instr->instr);
 }
 
 static void
 remove_defs_uses_load_const(nir_load_const_instr *instr)
 {
    remove_def(&instr->dest, &instr->instr);
+   
+   if (instr->has_predicate)
+      remove_use(&instr->predicate, &instr->instr);
 }
 
 static void
@@ -979,6 +1042,10 @@ remove_defs_uses(nir_instr *instr)
 	 
       case nir_instr_type_intrinsic:
 	 remove_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
+	 break;
+	 
+      case nir_instr_type_call:
+	 remove_defs_uses_call(nir_instr_as_call(instr));
 	 break;
 	 
       case nir_instr_type_load_const:
