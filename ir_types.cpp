@@ -89,4 +89,10 @@ glsl_type_is_void(const glsl_type *type)
    return type == glsl_type::void_type;
 }
 
+const glsl_type*
+glsl_void_type(void)
+{
+   return glsl_type::void_type;
+}
+
 

@@ -29,5 +29,15 @@
 
 int main(void)
 {
+   nir_shader *shader = nir_shader_create(NULL);
+   nir_function *func = nir_function_create(shader, "main");
+   nir_function_overload *overload = nir_function_overload_create(func);
+   nir_function_impl *impl = nir_function_impl_create(overload);
+   
+   nir_validate_shader(shader);
+   nir_print_shader(shader, stdout);
+   
+   ralloc_free(shader);
+   
    return 0;
 }

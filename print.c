@@ -360,7 +360,9 @@ print_call_instr(nir_call_instr *instr, print_var_state *state, FILE *fp)
    }
    
    if (instr->return_var != NULL) {
-      fprintf(fp, ", returning ");
+      if (instr->num_params != 0)
+	 fprintf(fp, ", ");
+      fprintf(fp, "returning ");
       print_var(instr->return_var, state, fp);
    }
 }
@@ -613,7 +615,7 @@ print_cf_node(nir_cf_node *node, print_var_state *state, unsigned int tabs,
 static void
 print_function_impl(nir_function_impl *impl, print_var_state *state, FILE *fp)
 {
-   fprintf(fp, "impl %s ", impl->overload->function->name);
+   fprintf(fp, "\nimpl %s ", impl->overload->function->name);
    
    for (unsigned i = 0; i < impl->num_params; i++) {
       if (i != 0)
@@ -623,7 +625,9 @@ print_function_impl(nir_function_impl *impl, print_var_state *state, FILE *fp)
    }
    
    if (impl->return_var != NULL) {
-      fprintf(fp, ", returning ");
+      if (impl->num_params != 0)
+	 fprintf(fp, ", ");
+      fprintf(fp, "returning ");
       print_var(impl->return_var, state, fp);
    }
    
@@ -648,7 +652,7 @@ print_function_impl(nir_function_impl *impl, print_var_state *state, FILE *fp)
       print_cf_node(node, state, 1, fp);
    }
    
-   fprintf(fp, "}\n\n");
+   fprintf(fp, "\tblock block_%u:\n}\n\n", impl->end_block->index);
 }
 
 static void
@@ -680,7 +684,9 @@ print_function_overload(nir_function_overload *overload,
    }
    
    if (overload->return_type != NULL) {
-      fprintf(fp, ", returning ");
+      if (overload->num_params != 0)
+	 fprintf(fp, ", ");
+      fprintf(fp, "returning ");
       glsl_print_type(overload->return_type, fp);
    }
    

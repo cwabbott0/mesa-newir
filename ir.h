@@ -845,7 +845,7 @@ typedef enum {
 
 typedef struct {
    nir_parameter_type param_type;
-   struct glsl_type *type;
+   const struct glsl_type *type;
 } nir_parameter;
 
 typedef struct nir_function_overload {
@@ -853,7 +853,7 @@ typedef struct nir_function_overload {
    
    unsigned num_params;
    nir_parameter *params;
-   struct glsl_type *return_type;
+   const struct glsl_type *return_type;
    
    nir_function_impl *impl; /** < NULL if the overload is only declared yet */
    

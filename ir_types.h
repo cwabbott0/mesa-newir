@@ -46,6 +46,7 @@ const struct glsl_type *glsl_get_struct_field(const struct glsl_type *type,
 const struct glsl_type *glsl_get_array_element(const struct glsl_type *type);
 
 bool glsl_type_is_void(const struct glsl_type *type);
+const struct glsl_type *glsl_void_type(void);
 
 #ifdef __cplusplus
 }

@@ -87,7 +87,7 @@ nir_function_overload_create(nir_function *func)
    
    overload->num_params = 0;
    overload->params = NULL;
-   overload->return_type = NULL;
+   overload->return_type = glsl_void_type();
    
    exec_list_push_tail(&func->overload_list, &overload->node);
    overload->function = func;
@@ -1146,6 +1146,8 @@ nir_foreach_block(nir_function_impl *impl, nir_foreach_block_cb cb, void *state)
       if (!foreach_cf_node(node, cb, state))
 	 return false;
    }
+   
+   cb(impl->end_block, state);
    
    return true;
 }

@@ -55,8 +55,8 @@ typedef struct {
    /* the current basic block being validated */
    nir_block *block;
    
-   /* the current cf node being visited */
-   nir_cf_node *node;
+   /* the parent of the current cf node being visited */
+   nir_cf_node *parent_node;
    
    /* the current function implementation being validated */
    nir_function_impl *impl;
@@ -413,7 +413,7 @@ static void validate_cf_node(nir_cf_node *node, validate_state *state);
 static void
 validate_block(nir_block *block, validate_state *state)
 {
-   assert(block->cf_node.parent == state->node);
+   assert(block->cf_node.parent == state->parent_node);
    
    state->block = block;
    
@@ -439,7 +439,8 @@ validate_block(nir_block *block, validate_state *state)
       }
    }
    
-   if (nir_block_last_instr(block)->type == nir_instr_type_jump)
+   if (!exec_list_is_empty(&block->instr_list) &&
+       nir_block_last_instr(block)->type == nir_instr_type_jump)
       assert(block->successors[1] == NULL);
 }
 
@@ -469,16 +470,20 @@ validate_if(nir_if *if_stmt, validate_state *state)
    }
    
    assert(!exec_list_is_empty(&if_stmt->then_list));
+   assert(!exec_list_is_empty(&if_stmt->else_list));
+   
+   nir_cf_node *old_parent = state->parent_node;
+   state->parent_node = &if_stmt->cf_node;
    
    foreach_list_typed(nir_cf_node, cf_node, node, &if_stmt->then_list) {
       validate_cf_node(cf_node, state);
    }
    
-   assert(!exec_list_is_empty(&if_stmt->else_list));
-   
    foreach_list_typed(nir_cf_node, cf_node, node, &if_stmt->else_list) {
       validate_cf_node(cf_node, state);
    }
+   
+   state->parent_node = old_parent;
 }
 
 static void
@@ -498,16 +503,20 @@ validate_loop(nir_loop *loop, validate_state *state)
    
    assert(!exec_list_is_empty(&loop->body));
    
+   nir_cf_node *old_parent = state->parent_node;
+   state->parent_node = &loop->cf_node;
+   
    foreach_list_typed(nir_cf_node, cf_node, node, &loop->body) {
       validate_cf_node(cf_node, state);
    }
+   
+   state->parent_node = old_parent;
 }
 
 static void
 validate_cf_node(nir_cf_node *node, validate_state *state)
 {
-   assert(node->parent == state->node);
-   state->node = node;
+   assert(node->parent == state->parent_node);
    
    switch (node->type) {
       case nir_cf_node_block:
@@ -526,8 +535,6 @@ validate_cf_node(nir_cf_node *node, validate_state *state)
 	 assert(0);
 	 break;
    }
-   
-   state->node = node->parent;
 }
 
 static void
@@ -627,7 +634,7 @@ validate_function_impl(nir_function_impl *impl, validate_state *state)
    assert(impl->end_block->successors[1] == NULL);
    
    state->impl = impl;
-   state->node = &impl->cf_node;
+   state->parent_node = &impl->cf_node;
    
    foreach_list_typed(nir_variable, var, node, &impl->locals) {
       validate_var_decl(var, false, state);
