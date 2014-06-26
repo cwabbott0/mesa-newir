@@ -94,13 +94,13 @@ validate_reg_src(nir_reg_src *src, validate_state *state)
 	     "using a register declared in a different function");
    }
    
-   assert(src->reg->num_array_elems == 0 ||
-	  src->base_offset < src->reg->num_array_elems &&
+   assert((src->reg->num_array_elems == 0 ||
+	  src->base_offset < src->reg->num_array_elems) &&
 	  "definitely out-of-bounds array access");
    
    if (src->indirect) {
       assert(src->reg->num_array_elems != 0);
-      assert(src->indirect->is_ssa || src->indirect->reg.indirect == NULL &&
+      assert((src->indirect->is_ssa || src->indirect->reg.indirect == NULL) &&
 	     "only one level of indirection allowed");
       validate_src(src->indirect, state);
    }
@@ -165,13 +165,13 @@ validate_reg_dest(nir_reg_dest *dest, validate_state *state)
 	     "writing to a register declared in a different function");
    }
    
-   assert(dest->reg->num_array_elems == 0 ||
-	  dest->base_offset < dest->reg->num_array_elems &&
+   assert((dest->reg->num_array_elems == 0 ||
+	  dest->base_offset < dest->reg->num_array_elems) &&
 	  "definitely out-of-bounds array access");
    
    if (dest->indirect) {
       assert(dest->reg->num_array_elems != 0);
-      assert(dest->indirect->is_ssa || dest->indirect->reg.indirect == NULL &&
+      assert((dest->indirect->is_ssa || dest->indirect->reg.indirect == NULL) &&
 	     "only one level of indirection allowed");
       validate_src(dest->indirect, state);
    }
