@@ -148,12 +148,17 @@ print_alu_src(nir_alu_src *src, FILE *fp)
       for (unsigned i = 0; i < 4; i++)
 	 fprintf(fp, "%c", "xyzw"[src->swizzle[i]]);
    }
+   
+   if (src->abs)
+      fprintf(fp, ")");
 }
 
 static void
 print_alu_dest(nir_alu_dest *dest, FILE *fp)
 {
    /* we're going to print the saturate modifier later, after the opcode */
+   
+   print_dest(&dest->dest, fp);
    
    if (!dest->dest.is_ssa &&
        dest->write_mask != (1 << dest->dest.reg.reg->num_components)) {
@@ -162,8 +167,6 @@ print_alu_dest(nir_alu_dest *dest, FILE *fp)
 	 if ((dest->write_mask >> i) & 1)
 	    fprintf(fp, "%c", "xyzw"[i]);
    }
-   
-   print_dest(&dest->dest, fp);
 }
 
 static void
@@ -182,7 +185,7 @@ print_alu_instr(nir_alu_instr *instr, FILE *fp)
       fprintf(fp, ".sat");
    fprintf(fp, " ");
    
-   bool first = false;
+   bool first = true;
    for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
       if (!first)
 	 fprintf(fp, ", ");
