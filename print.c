@@ -509,8 +509,8 @@ print_instr(nir_instr *instr, print_var_state *state, unsigned tabs, FILE *fp)
 static int
 compare_block_index(const void *p1, const void *p2)
 {
-   const nir_block *block1 = (const nir_block *) p1;
-   const nir_block *block2 = (const nir_block *) p2;
+   const nir_block *block1 = *((const nir_block **) p1);
+   const nir_block *block2 = *((const nir_block **) p2);
    
    return (int) block1->index - (int) block2->index;
 }
