@@ -12,17 +12,17 @@ SOURCE_DIRS = . main program
 C_OBJECTS = $(patsubst %.c, %.o, $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.c)))
 CXX_OBJECTS = $(patsubst %.cpp, %.o, $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.cpp)))
 
-LIB_NAME = libnewir.so
+NAME = nir_test
 
-all: $(LIB_NAME)
+all: $(NAME)
 
 clean:
 	rm -f $(LIB_NAME)
 	rm -f $(C_OBJECTS)
 	rm -f $(CXX_OBJECTS)
 
-$(LIB_NAME): $(C_OBJECTS) $(CXX_OBJECTS)
-	$(CXX) -shared $(LDFLAGS) -o $@ $^
+$(NAME): $(C_OBJECTS) $(CXX_OBJECTS)
+	$(CXX) $(LDFLAGS) -o $@ $^
 
 $(C_OBJECTS): %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -52,7 +52,7 @@ glsl_print_type(const glsl_type *type, FILE *fp)
 }
 
 void
-glsl_print_struct(glsl_type *type, FILE *fp)
+glsl_print_struct(const glsl_type *type, FILE *fp)
 {
    assert(type->base_type == GLSL_TYPE_STRUCT);
    
