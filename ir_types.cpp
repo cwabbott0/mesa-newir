@@ -65,3 +65,28 @@ glsl_print_struct(glsl_type *type, FILE *fp)
    fprintf(fp, "}\n");
 }
 
+const glsl_type *
+glsl_get_array_element(const glsl_type* type)
+{
+   return type->fields.array;
+}
+
+const glsl_type*
+glsl_get_struct_field(const glsl_type *type, const char *field)
+{
+   for (int i = 0; i < type->length; i++) {
+      if (strcmp(type->fields.structure[i].name, field) == 0) {
+	 return type->fields.structure[i].type;
+      }
+   }
+   
+   return NULL;
+}
+
+bool
+glsl_type_is_void(const glsl_type *type)
+{
+   return type == glsl_type::void_type;
+}
+
+

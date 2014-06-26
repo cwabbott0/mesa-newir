@@ -40,6 +40,13 @@ struct glsl_type;
 void glsl_print_type(const struct glsl_type *type, FILE *fp);
 void glsl_print_struct(const struct glsl_type *type, FILE *fp);
 
+const struct glsl_type *glsl_get_struct_field(const struct glsl_type *type,
+					      const char *field);
+
+const struct glsl_type *glsl_get_array_element(const struct glsl_type *type);
+
+bool glsl_type_is_void(const struct glsl_type *type);
+
 #ifdef __cplusplus
 }
 #endif
