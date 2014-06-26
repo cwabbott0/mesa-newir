@@ -372,7 +372,7 @@ print_const_value(nir_const_value value, unsigned num_components, FILE *fp)
 {
    fprintf(fp, "(");
    
-   bool first = false;
+   bool first = true;
    for (unsigned i = 0; i < num_components; i++) {
       if (!first)
 	 fprintf(fp, ", ");
@@ -564,7 +564,9 @@ static void
 print_if(nir_if *if_stmt, print_var_state *state, unsigned tabs, FILE *fp)
 {
    print_tabs(tabs, fp);
-   fprintf(fp, "if {\n");
+   fprintf(fp, "if ");
+   print_src(&if_stmt->condition, fp);
+   fprintf(fp, " {\n");
    foreach_list_typed(nir_cf_node, node, node, &if_stmt->then_list) {
       print_cf_node(node, state, tabs + 1, fp);
    }

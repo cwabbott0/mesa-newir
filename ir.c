@@ -49,7 +49,7 @@ nir_shader_create(void *mem_ctx)
 }
 
 static nir_register *
-reg_create(void *mem_ctx)
+reg_create(void *mem_ctx, struct exec_list *list)
 {
    nir_register *reg = ralloc(mem_ctx, nir_register);
    
@@ -61,13 +61,15 @@ reg_create(void *mem_ctx)
    reg->num_array_elems = 0;
    reg->name = NULL;
    
+   exec_list_push_tail(list, &reg->node);
+   
    return reg;
 }
 
 nir_register *
 nir_global_reg_create(nir_shader *shader)
 {
-   nir_register *reg = reg_create(shader);
+   nir_register *reg = reg_create(shader, &shader->registers);
    reg->index = shader->reg_alloc++;
    reg->is_global = true;
    
@@ -77,7 +79,7 @@ nir_global_reg_create(nir_shader *shader)
 nir_register *
 nir_local_reg_create(nir_function_impl *impl)
 {
-   nir_register *reg = reg_create(ralloc_parent(impl));
+   nir_register *reg = reg_create(ralloc_parent(impl), &impl->registers);
    reg->index = impl->reg_alloc++;
    reg->is_global = false;
    
@@ -1024,11 +1026,11 @@ nir_instr_insert_before_cf(nir_cf_node *node, nir_instr *before)
    if (node->type == nir_cf_node_block) {
       nir_instr_insert_before_block(nir_cf_node_as_block(node), before);
    } else {
-      nir_cf_node *next = nir_cf_node_next(node);
-      assert(next->type == nir_cf_node_block);
-      nir_block *next_block = nir_cf_node_as_block(next);
+      nir_cf_node *prev = nir_cf_node_prev(node);
+      assert(prev->type == nir_cf_node_block);
+      nir_block *prev_block = nir_cf_node_as_block(prev);
       
-      nir_instr_insert_after_block(next_block, before);
+      nir_instr_insert_before_block(prev_block, before);
    }
 }
 
@@ -1038,11 +1040,11 @@ nir_instr_insert_after_cf(nir_cf_node *node, nir_instr *after)
       if (node->type == nir_cf_node_block) {
       nir_instr_insert_after_block(nir_cf_node_as_block(node), after);
    } else {
-      nir_cf_node *prev = nir_cf_node_prev(node);
-      assert(prev->type == nir_cf_node_block);
-      nir_block *prev_block = nir_cf_node_as_block(prev);
+      nir_cf_node *next = nir_cf_node_next(node);
+      assert(next->type == nir_cf_node_block);
+      nir_block *next_block = nir_cf_node_as_block(next);
       
-      nir_instr_insert_before_block(prev_block, after);
+      nir_instr_insert_before_block(next_block, after);
    }
 }
 

@@ -43,6 +43,7 @@ int main(void)
    nir_load_const_instr *instr = nir_load_const_instr_create(shader);
    instr->dest.reg.reg = reg;
    instr->value.u[0] = ~0;
+   nir_instr_insert_before_cf(&loop->cf_node, &instr->instr);
    
    nir_if *if_stmt = nir_if_create(shader);
    if_stmt->condition.reg.reg = reg;
@@ -51,8 +52,8 @@ int main(void)
    nir_jump_instr *break_instr = nir_jump_instr_create(shader, nir_jump_break);
    nir_instr_insert_after_cf_list(&if_stmt->then_list, &break_instr->instr);
    
-   nir_validate_shader(shader);
-   nir_print_shader(shader, stdout);   
+   nir_print_shader(shader, stdout);
+   nir_validate_shader(shader);   
    
    ralloc_free(shader);
    
