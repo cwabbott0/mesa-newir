@@ -713,4 +713,6 @@ nir_validate_shader(nir_shader *shader)
    foreach_list_typed(nir_register, reg, node, &shader->registers) {
       postvalidate_reg_decl(reg, &state);
    }
+   
+   destroy_validate_state(&state);
 }

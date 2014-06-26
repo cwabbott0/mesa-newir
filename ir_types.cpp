@@ -45,9 +45,9 @@ glsl_print_type(const glsl_type *type, FILE *fp)
       fprintf(fp, "[%u]", type->length);
    } else if ((type->base_type == GLSL_TYPE_STRUCT)
               && !is_gl_identifier(type->name)) {
-      fprintf(fp, "%s@%p", type->name, (void *) type, fp);
+      fprintf(fp, "%s@%p", type->name, (void *) type);
    } else {
-      fprintf(fp, "%s", type->name, fp);
+      fprintf(fp, "%s", type->name);
    }
 }
 
@@ -74,7 +74,7 @@ glsl_get_array_element(const glsl_type* type)
 const glsl_type*
 glsl_get_struct_field(const glsl_type *type, const char *field)
 {
-   for (int i = 0; i < type->length; i++) {
+   for (unsigned i = 0; i < type->length; i++) {
       if (strcmp(type->fields.structure[i].name, field) == 0) {
 	 return type->fields.structure[i].type;
       }

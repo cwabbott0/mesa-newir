@@ -1155,6 +1155,7 @@ index_block(nir_block *block, void *state)
 {
    unsigned *index = (unsigned *) state;
    block->index = (*index)++;
+   return true;
 }
 
 void

@@ -752,4 +752,6 @@ nir_print_shader(nir_shader *shader, FILE *fp)
    foreach_list_typed(nir_function, func, node, &shader->functions) {
       print_function(func, &state, fp);
    }
+   
+   destroy_print_state(&state);
 }
