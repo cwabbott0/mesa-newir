@@ -585,7 +585,7 @@ typedef struct {
 
 #define INTRINSIC(name, num_reg_inputs, reg_input_components, \
    num_reg_outputs, reg_output_components, num_variables, \
-   has_const_index, is_load, is_reorderable_load) \
+   has_const_index, flags) \
    nir_intrinsic_##name,
 
 #define LAST_INTRINSIC(name) nir_last_intrinsic = nir_intrinsic_##name,
@@ -609,6 +609,19 @@ typedef struct {
    int const_index;
 } nir_intrinsic_instr;
 
+/**
+ * \name NIR semantic flags
+ * 
+ * information about what the compiler can do with the intrinsics.
+ * 
+ * \sa nir_intrinsic_info::flags
+ */
+/*@{*/
+#define NIR_INTRINSIC_CAN_ELIMINATE (1 << 0)
+#define NIR_INTRINSIC_CAN_REORDER   (1 << 1)
+#define NIR_INTRINSIC_IS_TEXTURE    (1 << 2)
+/*@}*/
+
 typedef struct {
    const char *name;
    
@@ -628,11 +641,8 @@ typedef struct {
    /** if true, the const_index parameter is used / has meaning */
    bool has_const_index;
    
-   /** true if calls to this intrinsic can't be eliminated if unused */
-   bool is_load;
-   
-   /** true if calls to this intrinsic can be freely reordered */
-   bool is_reorderable_load;
+   /** semantic flags for calls to this intrinsic */
+   unsigned flags;
 } nir_intrinsic_info;
 
 extern const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics];

@@ -30,8 +30,7 @@
  * expands to a list of macros of the form:
  * 
  * INTRINSIC(name, num_reg_inputs, reg_input_components, num_reg_outputs,
- * 	     reg_output_components, num_variables, has_const_index, is_load,
- * 	     is_reorderable_load)
+ * 	     reg_output_components, num_variables, has_const_index, flags)
  * 
  * Which should correspond one-to-one with the nir_intrinsic_info structure. It
  * is included in both ir.h to create the nir_intrinsic enum (with members of
@@ -42,14 +41,41 @@
 
 #define ARR(...) { __VA_ARGS__ }
 
-INTRINSIC(load_var_float,  1, ARR(1), 0, ARR(), 1, false, true, false)
-INTRINSIC(load_var_vec2,   1, ARR(2), 0, ARR(), 1, false, true, false)
-INTRINSIC(load_var_vec3,   1, ARR(3), 0, ARR(), 1, false, true, false)
-INTRINSIC(load_var_vec4,   1, ARR(4), 0, ARR(), 1, false, true, false)
-INTRINSIC(store_var_float, 0, ARR(), 1, ARR(1), 1, false, false, false)
-INTRINSIC(store_var_vec2,  0, ARR(), 1, ARR(2), 1, false, false, false)
-INTRINSIC(store_var_vec3,  0, ARR(), 1, ARR(3), 1, false, false, false)
-INTRINSIC(store_var_vec4,  0, ARR(), 1, ARR(4), 1, false, false, false)
-INTRINSIC(copy_var,        0, ARR(), 0, ARR(),  2, false, false, false)
+INTRINSIC(load_var_vec1,  1, ARR(1), 0, ARR(), 1, false,
+	  NIR_INTRINSIC_CAN_ELIMINATE)
+INTRINSIC(load_var_vec2,   1, ARR(2), 0, ARR(), 1, false,
+	  NIR_INTRINSIC_CAN_ELIMINATE)
+INTRINSIC(load_var_vec3,   1, ARR(3), 0, ARR(), 1, false,
+	  NIR_INTRINSIC_CAN_ELIMINATE)
+INTRINSIC(load_var_vec4,   1, ARR(4), 0, ARR(), 1, false,
+	  NIR_INTRINSIC_CAN_ELIMINATE)
+INTRINSIC(store_var_vec1, 0, ARR(), 1, ARR(1), 1, false,  0)
+INTRINSIC(store_var_vec2,  0, ARR(), 1, ARR(2), 1, false, 0)
+INTRINSIC(store_var_vec3,  0, ARR(), 1, ARR(3), 1, false, 0)
+INTRINSIC(store_var_vec4,  0, ARR(), 1, ARR(4), 1, false, 0)
+INTRINSIC(copy_var,        0, ARR(), 0, ARR(),  2, false, 0)
 
-LAST_INTRINSIC(copy_var)
+#define LOAD(name, has_const_index, flags) \
+   INTRINSIC(load_##name, 1, ARR(1), 1, ARR(4), 0, has_const_index, \
+	     NIR_INTRINSIC_CAN_ELIMINATE | flags)
+
+LOAD(uniform, false, NIR_INTRINSIC_CAN_REORDER)
+LOAD(ubo, true, NIR_INTRINSIC_CAN_REORDER)
+LOAD(input, false, NIR_INTRINSIC_CAN_REORDER)
+/* LOAD(ssbo, true, 0) */
+
+#define STORE(name, has_const_index, flags) \
+   INTRINSIC(store_##name, 2, ARR(1, 4), 0, ARR(), 0, has_const_index, flags)
+
+STORE(output, false, 0)
+/* STORE(ssbo, true, 0) */
+
+#define TEX(name, num_inputs, input_components, flags, num_outputs, ...) \
+   INTRINSIC(name##_var, num_inputs, input_components, num_outputs, \
+	     ARR(__VA_ARGS__), 1, false, NIR_IS_TEXTURE | flags) \
+   INTRINSIC(name, num_inputs, input_components, num_outputs, \
+	     ARR(__VA_ARGS__), 0, true, NIR_IS_TEXTURE | flags) \
+   INTRINSIC(name##_indirect, num_inputs, input_components, num_outputs + 1, \
+	     ARR(__VA_ARGS__, 1), 0, false, NIR_IS_TEXTURE | flags)
+
+LAST_INTRINSIC(store_output)

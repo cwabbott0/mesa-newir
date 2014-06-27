@@ -31,7 +31,7 @@
 
 #define INTRINSIC(_name, _num_reg_inputs, _reg_input_components, \
    _num_reg_outputs, _reg_output_components, _num_variables, \
-   _has_const_index, _is_load, _is_reorderable_load) \
+   _has_const_index, _flags) \
 { \
    .name = #_name, \
    .num_reg_inputs = _num_reg_inputs, \
@@ -40,8 +40,7 @@
    .reg_output_components = _reg_output_components, \
    .num_variables = _num_variables, \
    .has_const_index = _has_const_index, \
-   .is_load = _is_load, \
-   .is_reorderable_load = _is_reorderable_load \
+   .flags = _flags \
 },
 
 #define LAST_INTRINSIC(name)
