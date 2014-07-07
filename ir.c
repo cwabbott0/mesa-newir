@@ -868,139 +868,47 @@ nir_cf_node_remove(nir_cf_node *node)
    }  
 }
 
-static void
-add_use(nir_src *src, nir_instr *instr)
+static bool
+add_use_cb(nir_src *src, void *state)
 {
+   nir_instr *instr = (nir_instr *) state;
+   
    if (src->is_ssa)
-      return;
+      return true;
    
    nir_register *reg = src->reg.reg;
    
    _mesa_hash_table_insert(reg->uses, _mesa_hash_pointer(instr), instr, instr);
    
    if (src->reg.indirect != NULL)
-      add_use(src->reg.indirect, instr);
+      add_use_cb(src->reg.indirect, state);
+   
+   return true;
 }
 
-static void
-add_def(nir_dest *dest, nir_instr *instr)
+static bool
+add_def_cb(nir_dest *dest, void *state)
 {
+   nir_instr *instr = (nir_instr *) state;
+   
    if (dest->is_ssa)
-      return;
+      return true;
    
    nir_register *reg = dest->reg.reg;
    
    _mesa_hash_table_insert(reg->defs, _mesa_hash_pointer(instr), instr, instr);
    
    if (dest->reg.indirect != NULL)
-      add_use(dest->reg.indirect, instr);
-}
-
-static void
-add_use_deref_array(nir_deref_array *deref, nir_instr *instr)
-{
-   add_use(&deref->offset, instr);
-}
-
-static void add_uses_deref(nir_deref_var *deref, nir_instr *instr)
-{
-   nir_deref *cur = &deref->deref;
-   while (cur != NULL) {
-      if (cur->deref_type == nir_deref_type_array)
-	 add_use_deref_array(nir_deref_as_array(cur), instr);
-      
-      cur = cur->child;
-   }
-}
-
-static void
-add_defs_uses_alu(nir_alu_instr *instr)
-{
-   add_def(&instr->dest.dest, &instr->instr);
-   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
-      add_use(&instr->src[i].src, &instr->instr);
+      add_use_cb(dest->reg.indirect, state);
    
-   if (instr->has_predicate)
-      add_use(&instr->predicate, &instr->instr);
-}
-
-static void
-add_defs_uses_intrinsic(nir_intrinsic_instr *instr)
-{
-   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
-   for (unsigned i = 0; i < num_inputs; i++)
-      add_use(&instr->reg_inputs[i], &instr->instr);
-   
-   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   for (unsigned i = 0; i < num_outputs; i++)
-      add_def(&instr->reg_outputs[i], &instr->instr);
-   
-   unsigned num_var_inputs =
-      nir_intrinsic_infos[instr->intrinsic].num_variables;
-   for (unsigned i = 0; i < num_var_inputs; i++)
-      add_uses_deref(instr->variables[i], &instr->instr);
-   
-   if (instr->has_predicate)
-      add_use(&instr->predicate, &instr->instr);
-}
-
-static void
-add_defs_uses_tex(nir_tex_instr *instr)
-{
-   add_def(&instr->dest, &instr->instr);
-   for (unsigned i = 0; i < instr->num_srcs; i++)
-      add_use(&instr->src[i], &instr->instr);
-   
-   if (instr->has_predicate)
-      add_use(&instr->predicate, &instr->instr);
-   
-   if (instr->sampler != NULL)
-      add_uses_deref(instr->sampler, &instr->instr);
-}
-
-static void
-add_defs_uses_call(nir_call_instr *instr)
-{
-   if (instr->has_predicate)
-      add_use(&instr->predicate, &instr->instr);
-}
-
-static void
-add_defs_uses_load_const(nir_load_const_instr *instr)
-{
-   add_def(&instr->dest, &instr->instr);
-   
-   if (instr->has_predicate)
-      add_use(&instr->predicate, &instr->instr);
+   return true;
 }
 
 static void
 add_defs_uses(nir_instr *instr)
 {
-   switch (instr->type) {
-      case nir_instr_type_alu:
-	 add_defs_uses_alu(nir_instr_as_alu(instr));
-	 break;
-	 
-      case nir_instr_type_intrinsic:
-	 add_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
-	 break;
-	 
-      case nir_instr_type_texture:
-	 add_defs_uses_tex(nir_instr_as_texture(instr));
-	 break;
-	 
-      case nir_instr_type_call:
-	 add_defs_uses_call(nir_instr_as_call(instr));
-	 break;
-	 
-      case nir_instr_type_load_const:
-	 add_defs_uses_load_const(nir_instr_as_load_const(instr));
-	 break;
-	 
-      default:
-	 break;
-   }
+   nir_foreach_src(instr, add_use_cb, instr);
+   nir_foreach_dest(instr, add_def_cb, instr);
 }
 
 void
@@ -1104,11 +1012,13 @@ nir_instr_insert_after_cf_list(struct exec_list *list, nir_instr *after)
    nir_instr_insert_after_cf(last_node, after);
 }
 
-static void
-remove_use(nir_src *src, nir_instr *instr)
+static bool
+remove_use_cb(nir_src *src, void *state)
 {
+   nir_instr *instr = (nir_instr *) state;
+   
    if (src->is_ssa)
-      return;
+      return true;
    
    nir_register *reg = src->reg.reg;
    
@@ -1119,14 +1029,18 @@ remove_use(nir_src *src, nir_instr *instr)
       _mesa_hash_table_remove(reg->uses, entry);
    
    if (src->reg.indirect != NULL)
-      add_use(src->reg.indirect, instr);
+      remove_use_cb(src->reg.indirect, state);
+   
+   return true;
 }
 
-static void
-remove_def(nir_dest *dest, nir_instr *instr)
+static bool
+remove_def_cb(nir_dest *dest, void *state)
 {
+   nir_instr *instr = (nir_instr *) state;
+   
    if (dest->is_ssa)
-      return;
+      return true;
    
    nir_register *reg = dest->reg.reg;
    
@@ -1137,114 +1051,16 @@ remove_def(nir_dest *dest, nir_instr *instr)
       _mesa_hash_table_remove(reg->defs, entry);
    
    if (dest->reg.indirect != NULL)
-      add_use(dest->reg.indirect, instr);
-}
-
-static void
-remove_use_deref_array(nir_deref_array *deref, nir_instr *instr)
-{
-   remove_use(&deref->offset, instr);
-}
-
-static void remove_uses_deref(nir_deref_var *deref, nir_instr *instr)
-{
-   nir_deref *cur = &deref->deref;
-   while (cur != NULL) {
-      if (cur->deref_type == nir_deref_type_array)
-	 remove_use_deref_array(nir_deref_as_array(cur), instr);
-      
-      cur = cur->child;
-   }
-}
-
-static void
-remove_defs_uses_alu(nir_alu_instr *instr)
-{
-   remove_def(&instr->dest.dest, &instr->instr);
-   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
-      remove_use(&instr->src[i].src, &instr->instr);
+      remove_use_cb(dest->reg.indirect, state);
    
-   if (instr->has_predicate)
-      remove_use(&instr->predicate, &instr->instr);
-}
-
-static void
-remove_defs_uses_tex(nir_tex_instr *instr)
-{
-   remove_def(&instr->dest, &instr->instr);
-   for (unsigned i = 0; i < instr->num_srcs; i++)
-      remove_use(&instr->src[i], &instr->instr);
-   
-   if (instr->has_predicate)
-      remove_use(&instr->predicate, &instr->instr);
-   
-   if (instr->sampler != NULL)
-      remove_uses_deref(instr->sampler, &instr->instr);
-}
-
-static void
-remove_defs_uses_intrinsic(nir_intrinsic_instr *instr)
-{
-   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
-   for (unsigned i = 0; i < num_inputs; i++)
-      remove_use(&instr->reg_inputs[i], &instr->instr);
-   
-   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   for (unsigned i = 0; i < num_outputs; i++)
-      remove_def(&instr->reg_outputs[i], &instr->instr);
-   
-   unsigned num_var_inputs =
-      nir_intrinsic_infos[instr->intrinsic].num_variables;
-   for (unsigned i = 0; i < num_var_inputs; i++)
-      remove_uses_deref(instr->variables[i], &instr->instr);
-   
-   if (instr->has_predicate)
-      remove_use(&instr->predicate, &instr->instr);
-}
-
-static void
-remove_defs_uses_call(nir_call_instr *instr)
-{
-   if (instr->has_predicate)
-      remove_use(&instr->predicate, &instr->instr);
-}
-
-static void
-remove_defs_uses_load_const(nir_load_const_instr *instr)
-{
-   remove_def(&instr->dest, &instr->instr);
-   
-   if (instr->has_predicate)
-      remove_use(&instr->predicate, &instr->instr);
+   return true;
 }
 
 static void
 remove_defs_uses(nir_instr *instr)
 {
-   switch (instr->type) {
-      case nir_instr_type_alu:
-	 remove_defs_uses_alu(nir_instr_as_alu(instr));
-	 break;
-	 
-      case nir_instr_type_intrinsic:
-	 remove_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
-	 break;
-	 
-      case nir_instr_type_texture:
-	 remove_defs_uses_tex(nir_instr_as_texture(instr));
-	 break;
-	 
-      case nir_instr_type_call:
-	 remove_defs_uses_call(nir_instr_as_call(instr));
-	 break;
-	 
-      case nir_instr_type_load_const:
-	 remove_defs_uses_load_const(nir_instr_as_load_const(instr));
-	 break;
-	 
-      default:
-	 break;
-   }
+   nir_foreach_dest(instr, remove_def_cb, instr);
+   nir_foreach_src(instr, remove_use_cb, instr);
 }
 
 void nir_instr_remove(nir_instr *instr)
@@ -1275,6 +1091,194 @@ nir_index_global_regs(nir_shader *shader)
       reg->index = index++;
    }
 }
+
+static bool
+visit_alu_dest(nir_alu_instr *instr, nir_foreach_dest_cb cb, void *state)
+{
+   return cb(&instr->dest.dest, state);
+}
+
+static bool
+visit_intrinsic_dest(nir_intrinsic_instr *instr, nir_foreach_dest_cb cb,
+		     void *state)
+{
+   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
+   for (unsigned i = 0; i < num_outputs; i++) {
+      if (!cb(&instr->reg_outputs[i], state))
+	 return false;
+   }
+   
+   return true;
+}
+
+static bool
+visit_texture_dest(nir_tex_instr *instr, nir_foreach_dest_cb cb,
+		   void *state)
+{
+   return cb(&instr->dest, state);
+}
+
+static bool
+visit_load_const_dest(nir_load_const_instr *instr, nir_foreach_dest_cb cb,
+		      void *state)
+{
+   return cb(&instr->dest, state);
+}
+
+static bool
+visit_phi_dest(nir_phi_instr *instr, nir_foreach_dest_cb cb, void *state)
+{
+   return cb(&instr->dest, state);
+}
+
+bool
+nir_foreach_dest(nir_instr *instr, nir_foreach_dest_cb cb, void *state)
+{
+   switch (instr->type) {
+      case nir_instr_type_alu:
+	 return visit_alu_dest(nir_instr_as_alu(instr), cb, state);
+      case nir_instr_type_intrinsic:
+	 return visit_intrinsic_dest(nir_instr_as_intrinsic(instr), cb, state);
+      case nir_instr_type_texture:
+	 return visit_texture_dest(nir_instr_as_texture(instr), cb, state);
+      case nir_instr_type_load_const:
+	 return visit_load_const_dest(nir_instr_as_load_const(instr), cb, state);
+      case nir_instr_type_phi:
+	 return visit_phi_dest(nir_instr_as_phi(instr), cb, state);
+	 break;
+	 
+      case nir_instr_type_ssa_undef:
+      case nir_instr_type_call:
+      case nir_instr_type_jump:
+	 break;
+	 
+      default:
+	 assert(0);
+	 break;
+   }
+   
+   return true;
+}
+
+static bool
+visit_deref_array_src(nir_deref_array *deref, nir_foreach_src_cb cb,
+		      void *state)
+{
+   return cb(&deref->offset, state);
+}
+
+static bool
+visit_deref_src(nir_deref_var *deref, nir_foreach_src_cb cb, void *state)
+{
+   nir_deref *cur = &deref->deref;
+   while (cur != NULL) {
+      if (cur->deref_type == nir_deref_type_array)
+	 if (!visit_deref_array_src(nir_deref_as_array(cur), cb, state))
+	    return false;
+      
+      cur = cur->child;
+   }
+   
+   return true;
+}
+
+static bool
+visit_alu_src(nir_alu_instr *instr, nir_foreach_src_cb cb, void *state)
+{
+   for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
+      if (!cb(&instr->src[i].src, state))
+	 return false;
+   
+   if (instr->has_predicate)
+      if (!cb(&instr->predicate, state))
+	 return false;
+   
+   return true;
+}
+
+static bool
+visit_tex_src(nir_tex_instr *instr, nir_foreach_src_cb cb, void *state)
+{
+   for (unsigned i = 0; i < instr->num_srcs; i++)
+      if (!cb(&instr->src[i], state))
+	 return false;
+   
+   if (instr->has_predicate)
+      if (!cb(&instr->predicate, state))
+	 return false;
+   
+   if (instr->sampler != NULL)
+      if (!visit_deref_src(instr->sampler, cb, state))
+	 return false;
+   
+   return true;
+}
+
+static bool
+visit_intrinsic_src(nir_intrinsic_instr *instr, nir_foreach_src_cb cb,
+		    void *state)
+{  
+   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
+   for (unsigned i = 0; i < num_inputs; i++)
+      if (!cb(&instr->reg_inputs[i], state))
+	 return false;
+   
+   unsigned num_var_inputs =
+      nir_intrinsic_infos[instr->intrinsic].num_variables;
+   for (unsigned i = 0; i < num_var_inputs; i++)
+      if (!visit_deref_src(instr->variables[i], cb, state))
+	 return false;
+   
+   if (instr->has_predicate)
+      if (!cb(&instr->predicate, state))
+	 return false;
+   
+   return true;
+}
+
+static bool
+visit_call_src(nir_call_instr *instr, nir_foreach_src_cb cb, void *state)
+{
+   if (instr->has_predicate)
+      if (!cb(&instr->predicate, state))
+	 return false;
+   
+   return true;
+}
+
+static bool
+visit_load_const_src(nir_load_const_instr *instr, nir_foreach_src_cb cb,
+		     void *state)
+{  
+   if (instr->has_predicate)
+      if (!cb(&instr->predicate, state))
+	 return false;
+   
+   return true;
+}
+
+bool
+nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state)
+{
+   switch (instr->type) {
+      case nir_instr_type_alu:
+	 return visit_alu_src(nir_instr_as_alu(instr), cb, state);
+      case nir_instr_type_intrinsic:
+	 return visit_intrinsic_src(nir_instr_as_intrinsic(instr), cb, state);
+      case nir_instr_type_texture:
+	 return visit_tex_src(nir_instr_as_texture(instr), cb, state);
+      case nir_instr_type_call:
+	 return visit_call_src(nir_instr_as_call(instr), cb, state);
+      case nir_instr_type_load_const:
+	 return visit_load_const_src(nir_instr_as_load_const(instr), cb, state);
+	 
+      default:
+	 break;
+   }
+   
+   return true;
+}
+
 
 static bool foreach_cf_node(nir_cf_node *node, nir_foreach_block_cb cb,
 			    void *state);
@@ -1367,35 +1371,13 @@ index_ssa_def(nir_ssa_def *def, unsigned *index)
    def->index = (*index)++;
 }
 
-static void
-index_alu_def(nir_alu_instr *instr, unsigned *index)
+static bool
+index_ssa_def_cb(nir_dest *dest, void *state)
 {
-   if (instr->dest.dest.is_ssa)
-      index_ssa_def(&instr->dest.dest.ssa, index);
-}
-
-static void
-index_intrinsic_defs(nir_intrinsic_instr *instr, unsigned *index)
-{
-   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   for (unsigned i = 0; i < num_outputs; i++) {
-      if (instr->reg_outputs[i].is_ssa)
-	 index_ssa_def(&instr->reg_outputs[i].ssa, index);
-   }
-}
-
-static void
-index_texture_defs(nir_tex_instr *instr, unsigned *index)
-{
-   if (instr->dest.is_ssa)
-      index_ssa_def(&instr->dest.ssa, index);
-}
-
-static void
-index_load_const(nir_load_const_instr *instr, unsigned *index)
-{
-   if (instr->dest.is_ssa)
-      index_ssa_def(&instr->dest.ssa, index);
+   unsigned *index = (unsigned *) state;
+   if (dest->is_ssa)
+      index_ssa_def(&dest->ssa, index);
+   return true;
 }
 
 static void
@@ -1404,47 +1386,16 @@ index_ssa_undef(nir_ssa_undef_instr *instr, unsigned *index)
    index_ssa_def(&instr->def, index);
 }
 
-static void
-index_phi_def(nir_phi_instr *instr, unsigned *index)
-{
-   if (instr->dest.is_ssa)
-      index_ssa_def(&instr->dest.ssa, index);
-}
-
 static bool
 index_ssa_block(nir_block *block, void *state)
 {
    unsigned *index = (unsigned *) state;
    
    nir_foreach_instr(block, instr) {
-      switch (instr->type) {
-	 case nir_instr_type_alu:
-	    index_alu_def(nir_instr_as_alu(instr), index);
-	    break;
-	 case nir_instr_type_intrinsic:
-	    index_intrinsic_defs(nir_instr_as_intrinsic(instr), index);
-	    break;
-	 case nir_instr_type_texture:
-	    index_texture_defs(nir_instr_as_texture(instr), index);
-	    break;
-	 case nir_instr_type_load_const:
-	    index_load_const(nir_instr_as_load_const(instr), index);
-	    break;
-	 case nir_instr_type_ssa_undef:
-	    index_ssa_undef(nir_instr_as_ssa_undef(instr), index);
-	    break;
-	 case nir_instr_type_phi:
-	    index_phi_def(nir_instr_as_phi(instr), index);
-	    break;
-	    
-	 case nir_instr_type_call:
-	 case nir_instr_type_jump:
-	    break;
-	    
-	 default:
-	    assert(0);
-	    break;
-      }
+      if (instr->type == nir_instr_type_ssa_undef)
+	 index_ssa_undef(nir_instr_as_ssa_undef(instr), index);
+      else
+	 nir_foreach_dest(instr, index_ssa_def_cb, state);
    }
    
    return true;

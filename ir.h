@@ -1055,6 +1055,11 @@ void nir_instr_insert_after_cf_list(struct exec_list *list, nir_instr *after);
 
 void nir_instr_remove(nir_instr *instr);
 
+typedef bool (*nir_foreach_dest_cb)(nir_dest *dest, void *state);
+typedef bool (*nir_foreach_src_cb)(nir_src *src, void *state);
+bool nir_foreach_dest(nir_instr *instr, nir_foreach_dest_cb cb, void *state);
+bool nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state);
+
 /* visits basic blocks in source-code order */
 typedef bool (*nir_foreach_block_cb)(nir_block *block, void *state);
 bool nir_foreach_block(nir_function_impl *impl, nir_foreach_block_cb cb,
