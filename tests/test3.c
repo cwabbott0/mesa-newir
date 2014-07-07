@@ -69,6 +69,7 @@ int main(void)
    
    nir_alu_instr *compare = nir_alu_instr_create(shader, nir_op_ige);
    compare->dest.dest.reg.reg = compare_result;
+   compare->dest.write_mask = 0x1;
    compare->src[0].src.reg.reg = index;
    compare->src[1].src.reg.reg = const_reg;
    nir_instr_insert_after_cf_list(&loop->body, &compare->instr);
@@ -82,6 +83,7 @@ int main(void)
    
    nir_alu_instr *incr_instr = nir_alu_instr_create(shader, nir_op_iadd);
    incr_instr->dest.dest.reg.reg = index;
+   incr_instr->dest.write_mask = 0x1;
    incr_instr->src[0].src.reg.reg = index;
    incr_instr->src[1].src.reg.reg = const_one_reg;
    nir_instr_insert_after_cf_list(&loop->body, &incr_instr->instr);

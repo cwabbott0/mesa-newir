@@ -161,7 +161,7 @@ print_alu_dest(nir_alu_dest *dest, FILE *fp)
    print_dest(&dest->dest, fp);
    
    if (!dest->dest.is_ssa &&
-       dest->write_mask != (1 << dest->dest.reg.reg->num_components)) {
+       dest->write_mask != (1 << dest->dest.reg.reg->num_components) - 1) {
       fprintf(fp, ".");
       for (unsigned i = 0; i < 4; i++)
 	 if ((dest->write_mask >> i) & 1)
