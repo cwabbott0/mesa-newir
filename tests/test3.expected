@@ -1,0 +1,39 @@
+decl_overload main returning void
+
+impl main {
+	decl_reg vec1 r0
+	decl_reg vec1 r1
+	decl_reg vec1 r2
+	decl_reg vec1 r3
+	block block_0:
+	/* preds: */
+	/* length */ r0 = load_const (0x00000005 /* 0.000000 */)
+	/* const_one */ r1 = load_const (0x00000001 /* 0.000000 */)
+	/* index */ r2 = load_const (0x00000000 /* 0.000000 */)
+	/* succs: block_1 */
+	loop {
+		block block_1:
+		/* preds: block_0 block_4 */
+		r3.xyzw = ige /* index */ r2, /* length */ r0
+		/* succs: block_2 block_3 */
+		if r3 {
+			block block_2:
+			/* preds: block_1 */
+			break
+			/* succs: block_5 */
+		} else {
+			block block_3:
+			/* preds: block_1 */
+			/* succs: block_4 */
+		}
+		block block_4:
+		/* preds: block_3 */
+		/* index */ r2.xyzw = iadd /* index */ r2, /* const_one */ r1
+		/* succs: block_1 */
+	}
+	block block_5:
+	/* preds: block_2 */
+	/* succs: block_6 */
+	block block_6:
+}
+

@@ -1,0 +1,9 @@
+decl_overload main returning void
+
+impl main {
+	block block_0:
+	/* preds: */
+	/* succs: block_1 */
+	block block_1:
+}
+

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+passed=1
+
+for test in `find . -iname '*.test'`; do
+   name=${test%.*}
+   echo -n "Testing $name..."
+   if ! ./$test > "$name.out"; then
+      echo "FAIL"
+      passed=0
+   elif diff "$name.expected" "$name.out" >/dev/null 2>&1; then
+      echo "PASS"
+   else
+      echo "FAIL"
+      diff "$name.expected" "$name.out"
+      passed=0
+   fi
+done
+
+if [[ $passed == 1 ]]; then
+   exit 0
+else
+   exit 1
+fi

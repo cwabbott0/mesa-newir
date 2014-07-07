@@ -12,17 +12,23 @@ SOURCE_DIRS = . main program
 C_OBJECTS = $(patsubst %.c, %.o, $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.c)))
 CXX_OBJECTS = $(patsubst %.cpp, %.o, $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.cpp)))
 
-NAME = nir_test
+TEST_OBJECTS = $(patsubst %.c, %.test, $(wildcard tests/*.c))
 
-all: $(NAME)
+LIB_NAME = libnir.so
+
+all: $(LIB_NAME)
+
+test: $(TEST_OBJECTS)
+	cd tests && ./run_tests
 
 clean:
 	rm -f $(LIB_NAME)
 	rm -f $(C_OBJECTS)
 	rm -f $(CXX_OBJECTS)
+	rm -f $(TEST_OBJECTS)
 
-$(NAME): $(C_OBJECTS) $(CXX_OBJECTS)
-	$(CXX) $(LDFLAGS) -o $@ $^
+$(LIB_NAME): $(C_OBJECTS) $(CXX_OBJECTS)
+	$(CXX) -shared $(LDFLAGS) -o $@ $^
 
 $(C_OBJECTS): %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -30,4 +36,7 @@ $(C_OBJECTS): %.o: %.c
 $(CXX_OBJECTS): %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-.PHONY: all clean
+$(TEST_OBJECTS): %.test: %.c $(LIB_NAME)
+	$(CC) $(CFLAGS) -L $(TOP_SRC_DIR) -Wl,-rpath $(TOP_SRC_DIR) -o $@ $< -lnir
+
+.PHONY: all clean test

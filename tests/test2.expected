@@ -1,0 +1,41 @@
+decl_overload main returning void
+
+impl main {
+	block block_0:
+	/* preds: */
+	/* succs: block_1 */
+	block block_1:
+}
+
+decl_overload main returning void
+
+impl main {
+	decl_reg vec1 r0
+	block block_0:
+	/* preds: */
+	r0 = load_const (0x00000001 /* 0.000000 */)
+	/* succs: block_1 */
+	loop {
+		block block_1:
+		/* preds: block_0 block_4 */
+		/* succs: block_2 block_3 */
+		if r0 {
+			block block_2:
+			/* preds: block_1 */
+			break
+			/* succs: block_5 */
+		} else {
+			block block_3:
+			/* preds: block_1 */
+			/* succs: block_4 */
+		}
+		block block_4:
+		/* preds: block_3 */
+		/* succs: block_1 */
+	}
+	block block_5:
+	/* preds: block_2 */
+	/* succs: block_6 */
+	block block_6:
+}
+
