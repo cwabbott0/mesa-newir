@@ -345,6 +345,109 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
 }
 
 static void
+print_tex_instr(nir_tex_instr *instr, print_var_state *state, FILE *fp)
+{
+   if (instr->has_predicate) {
+      fprintf(fp, "(");
+      print_src(&instr->predicate, fp);
+      fprintf(fp, ") ");
+   }
+   
+   print_dest(&instr->dest, fp);
+   
+   fprintf(fp, " = ");
+   
+   switch (instr->op) {
+      case nir_texop_tex:
+	 fprintf(fp, "tex ");
+	 break;
+      case nir_texop_txb:
+	 fprintf(fp, "txb ");
+	 break;
+      case nir_texop_txl:
+	 fprintf(fp, "txl ");
+	 break;
+      case nir_texop_txd:
+	 fprintf(fp, "txd ");
+	 break;
+      case nir_texop_txf:
+	 fprintf(fp, "txf ");
+	 break;
+      case nir_texop_txf_ms:
+	 fprintf(fp, "txf_ms ");
+	 break;
+      case nir_texop_txs:
+	 fprintf(fp, "txs ");
+	 break;
+      case nir_texop_lod:
+	 fprintf(fp, "lod ");
+	 break;
+      case nir_texop_tg4:
+	 fprintf(fp, "tg4 ");
+	 break;
+      case nir_texop_query_levels:
+	 fprintf(fp, "query_levels ");
+	 
+      default:
+	 assert(0);
+	 break;
+   }
+   
+   for (unsigned i = 0; i < instr->num_srcs; i++) {
+      print_src(&instr->src[i], fp);
+      
+      fprintf(fp, " ");
+      
+      switch(instr->src_type[i]) {
+	 case nir_tex_src_coord:
+	    fprintf(fp, "(coord)");
+	    break;
+	 case nir_tex_src_projector:
+	    fprintf(fp, "(projector)");
+	    break;
+	 case nir_tex_src_shadow:
+	    fprintf(fp, "(shadow)");
+	    break;
+	 case nir_tex_src_offset:
+	    fprintf(fp, "(offset)");
+	    break;
+	 case nir_tex_src_bias:
+	    fprintf(fp, "(bias)");
+	    break;
+	 case nir_tex_src_ms_index:
+	    fprintf(fp, "(ms_index)");
+	    break;
+	 case nir_tex_src_gather_component:
+	    fprintf(fp, "(gather_component)");
+	    break;
+	 case nir_tex_src_ddx:
+	    fprintf(fp, "(ddx)");
+	    break;
+	 case nir_tex_src_ddy:
+	    fprintf(fp, "(ddy)");
+	    break;
+	 case nir_tex_src_sampler_index:
+	    fprintf(fp, "(sampler_index)");
+	    break;
+	    
+	 default:
+	    assert(0);
+	    break;
+      }
+      
+      fprintf(fp, ", ");
+   }
+   
+   if (instr->sampler) {
+      print_deref(&instr->sampler->deref, state, fp);
+   } else {
+      fprintf(fp, "%u", instr->sampler_index);
+   }
+   
+   fprintf(fp, "(sampler)");
+}
+
+static void
 print_call_instr(nir_call_instr *instr, print_var_state *state, FILE *fp)
 {
    if (instr->has_predicate) {
@@ -482,6 +585,10 @@ print_instr(nir_instr *instr, print_var_state *state, unsigned tabs, FILE *fp)
 	 
       case nir_instr_type_intrinsic:
 	 print_intrinsic_instr(nir_instr_as_intrinsic(instr), state, fp);
+	 break;
+	 
+      case nir_instr_type_texture:
+	 print_tex_instr(nir_instr_as_texture(instr), state, fp);
 	 break;
 	 
       case nir_instr_type_load_const:

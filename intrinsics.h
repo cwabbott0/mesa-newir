@@ -41,6 +41,7 @@
 
 #define ARR(...) { __VA_ARGS__ }
 
+
 INTRINSIC(load_var_vec1,  1, ARR(1), 0, ARR(), 1, false,
 	  NIR_INTRINSIC_CAN_ELIMINATE)
 INTRINSIC(load_var_vec2,   1, ARR(2), 0, ARR(), 1, false,
@@ -69,13 +70,5 @@ LOAD(input, false, NIR_INTRINSIC_CAN_REORDER)
 
 STORE(output, false, 0)
 /* STORE(ssbo, true, 0) */
-
-#define TEX(name, num_inputs, input_components, flags, num_outputs, ...) \
-   INTRINSIC(name##_var, num_inputs, input_components, num_outputs, \
-	     ARR(__VA_ARGS__), 1, false, NIR_IS_TEXTURE | flags) \
-   INTRINSIC(name, num_inputs, input_components, num_outputs, \
-	     ARR(__VA_ARGS__), 0, true, NIR_IS_TEXTURE | flags) \
-   INTRINSIC(name##_indirect, num_inputs, input_components, num_outputs + 1, \
-	     ARR(__VA_ARGS__, 1), 0, false, NIR_IS_TEXTURE | flags)
 
 LAST_INTRINSIC(store_output)

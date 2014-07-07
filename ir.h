@@ -361,6 +361,7 @@ typedef struct {
 typedef enum {
    nir_instr_type_alu,
    nir_instr_type_call,
+   nir_instr_type_texture,
    nir_instr_type_intrinsic,
    nir_instr_type_load_const,
    nir_instr_type_jump,
@@ -610,17 +611,28 @@ typedef struct {
 } nir_intrinsic_instr;
 
 /**
- * \name NIR semantic flags
+ * \name NIR intrinsics semantic flags
  * 
  * information about what the compiler can do with the intrinsics.
  * 
  * \sa nir_intrinsic_info::flags
  */
 /*@{*/
+/**
+ * whether the intrinsic can be safely eliminated if none of its register
+ * outputs are being used.
+ */
 #define NIR_INTRINSIC_CAN_ELIMINATE (1 << 0)
+
+/**
+ * Whether the intrinsic can be reordered with respect to any other intrinsic,
+ * i.e. whether the only reodering dependencies of the intrinsic are due to the
+ * register reads/writes.
+ */
 #define NIR_INTRINSIC_CAN_REORDER   (1 << 1)
-#define NIR_INTRINSIC_IS_TEXTURE    (1 << 2)
 /*@}*/
+
+#define NIR_INTRINSIC_MAX_INPUTS 4
 
 typedef struct {
    const char *name;
@@ -628,7 +640,7 @@ typedef struct {
    unsigned num_reg_inputs; /** < number of register/SSA inputs */
    
    /** number of components of each input register */
-   unsigned reg_input_components[4];
+   unsigned reg_input_components[NIR_INTRINSIC_MAX_INPUTS];
    
    unsigned num_reg_outputs; /** < number of register/SSA outputs */
    
@@ -646,6 +658,88 @@ typedef struct {
 } nir_intrinsic_info;
 
 extern const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics];
+
+/**
+ * \group texture information
+ * 
+ * This gives semantic information about textures which is useful to the
+ * frontend, the backend, and lowering passes, but not the optimizer.
+ */
+
+typedef enum {
+   nir_tex_src_coord,
+   nir_tex_src_projector,
+   nir_tex_src_shadow, /* shadow comparitor */
+   nir_tex_src_offset,
+   nir_tex_src_bias,
+   nir_tex_src_ms_index, /* MSAA sample index */
+   nir_tex_src_gather_component,
+   nir_tex_src_ddx,
+   nir_tex_src_ddy,
+   nir_tex_src_sampler_index, /* < dynamically uniform indirect index */
+   nir_num_texinput_types
+} nir_texinput_type;
+
+typedef enum {
+   nir_texop_tex,		/**< Regular texture look-up */
+   nir_texop_txb,		/**< Texture look-up with LOD bias */
+   nir_texop_txl,		/**< Texture look-up with explicit LOD */
+   nir_texop_txd,		/**< Texture look-up with partial derivatvies */
+   nir_texop_txf,		/**< Texel fetch with explicit LOD */
+   nir_texop_txf_ms,		/**< Multisample texture fetch */
+   nir_texop_txs,		/**< Texture size */
+   nir_texop_lod,		/**< Texture lod query */
+   nir_texop_tg4,		/**< Texture gather */
+   nir_texop_query_levels       /**< Texture levels query */
+} nir_texop;
+
+typedef struct {
+   nir_instr instr;
+   
+   bool has_predicate;
+   nir_src predicate;
+   
+   nir_texop op;
+   nir_dest dest;
+   nir_src src[4];
+   nir_texinput_type src_type[4];
+   unsigned num_srcs, coord_components;
+   
+   unsigned sampler_index;
+   nir_deref_var *sampler; /* if this is NULL, use sampler_index instead */
+} nir_tex_instr;
+
+static inline unsigned
+nir_tex_instr_dest_size(nir_tex_instr *instr)
+{
+   if (instr->op == nir_texop_txs)
+      return 2;
+   
+   for (unsigned i = 0; i < instr->num_srcs; i++)
+      if (instr->src_type[i] == nir_tex_src_shadow)
+	 return 1;
+   
+   return 4;
+}
+
+static inline unsigned
+nir_tex_instr_src_size(nir_tex_instr *instr, unsigned src)
+{
+   if (instr->src_type[src] == nir_tex_src_coord)
+      return instr->coord_components;
+   
+   return 1;
+}
+
+static inline int
+nir_tex_instr_src_index(nir_tex_instr *instr, nir_texinput_type type)
+{
+   for (unsigned i = 0; i < instr->num_srcs; i++)
+      if (instr->src_type[i] == type)
+	 return (int) i;
+   
+   return -1;
+}
 
 typedef struct {
    union {
@@ -711,6 +805,8 @@ typedef struct {
 #define nir_instr_as_alu(_instr) exec_node_data(nir_alu_instr, _instr, instr)
 #define nir_instr_as_call(_instr) exec_node_data(nir_call_instr, _instr, instr)
 #define nir_instr_as_jump(_instr) exec_node_data(nir_jump_instr, _instr, instr)
+#define nir_instr_as_texture(_instr) \
+   exec_node_data(nir_tex_instr, _instr, instr)
 #define nir_instr_as_intrinsic(_instr) \
    exec_node_data(nir_intrinsic_instr, _instr, instr)
 #define nir_instr_as_load_const(_instr) \

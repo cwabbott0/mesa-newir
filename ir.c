@@ -897,6 +897,23 @@ add_def(nir_dest *dest, nir_instr *instr)
 }
 
 static void
+add_use_deref_array(nir_deref_array *deref, nir_instr *instr)
+{
+   add_use(&deref->offset, instr);
+}
+
+static void add_uses_deref(nir_deref_var *deref, nir_instr *instr)
+{
+   nir_deref *cur = &deref->deref;
+   while (cur != NULL) {
+      if (cur->deref_type == nir_deref_type_array)
+	 add_use_deref_array(nir_deref_as_array(cur), instr);
+      
+      cur = cur->child;
+   }
+}
+
+static void
 add_defs_uses_alu(nir_alu_instr *instr)
 {
    add_def(&instr->dest.dest, &instr->instr);
@@ -918,8 +935,27 @@ add_defs_uses_intrinsic(nir_intrinsic_instr *instr)
    for (unsigned i = 0; i < num_outputs; i++)
       add_def(&instr->reg_outputs[i], &instr->instr);
    
+   unsigned num_var_inputs =
+      nir_intrinsic_infos[instr->intrinsic].num_variables;
+   for (unsigned i = 0; i < num_var_inputs; i++)
+      add_uses_deref(instr->variables[i], &instr->instr);
+   
    if (instr->has_predicate)
       add_use(&instr->predicate, &instr->instr);
+}
+
+static void
+add_defs_uses_tex(nir_tex_instr *instr)
+{
+   add_def(&instr->dest, &instr->instr);
+   for (unsigned i = 0; i < instr->num_srcs; i++)
+      add_use(&instr->src[i], &instr->instr);
+   
+   if (instr->has_predicate)
+      add_use(&instr->predicate, &instr->instr);
+   
+   if (instr->sampler != NULL)
+      add_uses_deref(instr->sampler, &instr->instr);
 }
 
 static void
@@ -948,6 +984,10 @@ add_defs_uses(nir_instr *instr)
 	 
       case nir_instr_type_intrinsic:
 	 add_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
+	 break;
+	 
+      case nir_instr_type_texture:
+	 add_defs_uses_tex(nir_instr_as_texture(instr));
 	 break;
 	 
       case nir_instr_type_call:
@@ -1101,6 +1141,23 @@ remove_def(nir_dest *dest, nir_instr *instr)
 }
 
 static void
+remove_use_deref_array(nir_deref_array *deref, nir_instr *instr)
+{
+   remove_use(&deref->offset, instr);
+}
+
+static void remove_uses_deref(nir_deref_var *deref, nir_instr *instr)
+{
+   nir_deref *cur = &deref->deref;
+   while (cur != NULL) {
+      if (cur->deref_type == nir_deref_type_array)
+	 remove_use_deref_array(nir_deref_as_array(cur), instr);
+      
+      cur = cur->child;
+   }
+}
+
+static void
 remove_defs_uses_alu(nir_alu_instr *instr)
 {
    remove_def(&instr->dest.dest, &instr->instr);
@@ -1109,6 +1166,20 @@ remove_defs_uses_alu(nir_alu_instr *instr)
    
    if (instr->has_predicate)
       remove_use(&instr->predicate, &instr->instr);
+}
+
+static void
+remove_defs_uses_tex(nir_tex_instr *instr)
+{
+   remove_def(&instr->dest, &instr->instr);
+   for (unsigned i = 0; i < instr->num_srcs; i++)
+      remove_use(&instr->src[i], &instr->instr);
+   
+   if (instr->has_predicate)
+      remove_use(&instr->predicate, &instr->instr);
+   
+   if (instr->sampler != NULL)
+      remove_uses_deref(instr->sampler, &instr->instr);
 }
 
 static void
@@ -1121,6 +1192,11 @@ remove_defs_uses_intrinsic(nir_intrinsic_instr *instr)
    unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
    for (unsigned i = 0; i < num_outputs; i++)
       remove_def(&instr->reg_outputs[i], &instr->instr);
+   
+   unsigned num_var_inputs =
+      nir_intrinsic_infos[instr->intrinsic].num_variables;
+   for (unsigned i = 0; i < num_var_inputs; i++)
+      remove_uses_deref(instr->variables[i], &instr->instr);
    
    if (instr->has_predicate)
       remove_use(&instr->predicate, &instr->instr);
@@ -1152,6 +1228,10 @@ remove_defs_uses(nir_instr *instr)
 	 
       case nir_instr_type_intrinsic:
 	 remove_defs_uses_intrinsic(nir_instr_as_intrinsic(instr));
+	 break;
+	 
+      case nir_instr_type_texture:
+	 remove_defs_uses_tex(nir_instr_as_texture(instr));
 	 break;
 	 
       case nir_instr_type_call:
@@ -1305,6 +1385,13 @@ index_intrinsic_defs(nir_intrinsic_instr *instr, unsigned *index)
 }
 
 static void
+index_texture_defs(nir_tex_instr *instr, unsigned *index)
+{
+   if (instr->dest.is_ssa)
+      index_ssa_def(&instr->dest.ssa, index);
+}
+
+static void
 index_load_const(nir_load_const_instr *instr, unsigned *index)
 {
    if (instr->dest.is_ssa)
@@ -1336,6 +1423,9 @@ index_ssa_block(nir_block *block, void *state)
 	    break;
 	 case nir_instr_type_intrinsic:
 	    index_intrinsic_defs(nir_instr_as_intrinsic(instr), index);
+	    break;
+	 case nir_instr_type_texture:
+	    index_texture_defs(nir_instr_as_texture(instr), index);
 	    break;
 	 case nir_instr_type_load_const:
 	    index_load_const(nir_instr_as_load_const(instr), index);

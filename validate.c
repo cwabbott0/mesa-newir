@@ -287,6 +287,25 @@ validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
 }
 
 static void
+validate_tex_instr(nir_tex_instr *instr, validate_state *state)
+{
+   validate_dest(&instr->dest, state);
+   
+   bool src_type_seen[nir_num_texinput_types];
+   for (unsigned i = 0; i < nir_num_texinput_types; i++)
+      src_type_seen[i] = false;
+   
+   for (unsigned i = 0; i < instr->num_srcs; i++) {
+      assert(!src_type_seen[instr->src_type[i]]);
+      src_type_seen[instr->src_type[i]] = true;
+      validate_src(&instr->src[i], state);
+   }
+   
+   if (instr->sampler != NULL)
+      validate_deref_var(instr->sampler, state);
+}
+
+static void
 validate_call_instr(nir_call_instr *instr, validate_state *state)
 {
    if (instr->return_var == NULL)
@@ -361,6 +380,10 @@ validate_instr(nir_instr *instr, validate_state *state)
 	 
       case nir_instr_type_intrinsic:
 	 validate_intrinsic_instr(nir_instr_as_intrinsic(instr), state);
+	 break;
+	 
+      case nir_instr_type_texture:
+	 validate_tex_instr(nir_instr_as_texture(instr), state);
 	 break;
 	 
       case nir_instr_type_load_const:
