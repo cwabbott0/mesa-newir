@@ -584,9 +584,8 @@ typedef struct {
 #define nir_deref_as_struct(_deref) \
    exec_node_data(nir_deref_struct, _deref, deref)
 
-#define INTRINSIC(name, num_reg_inputs, reg_input_components, \
-   num_reg_outputs, reg_output_components, num_variables, \
-   has_const_index, flags) \
+#define INTRINSIC(name, num_srcs, src_components, has_dest, dest_components, \
+		  num_variables, num_indices, flags) \
    nir_intrinsic_##name,
 
 #define LAST_INTRINSIC(name) nir_last_intrinsic = nir_intrinsic_##name,
@@ -601,13 +600,19 @@ typedef enum {
 
 typedef struct {
    nir_instr instr;
+   
    nir_intrinsic_op intrinsic;
-   nir_src *reg_inputs;
-   nir_dest *reg_outputs;
+   
+   nir_dest dest;
+   
+   int const_index[2];
+   
    nir_deref_var **variables;
+   
    bool has_predicate;
    nir_src predicate;
-   int const_index;
+   
+   nir_src src[];
 } nir_intrinsic_instr;
 
 /**
@@ -637,21 +642,21 @@ typedef struct {
 typedef struct {
    const char *name;
    
-   unsigned num_reg_inputs; /** < number of register/SSA inputs */
+   unsigned num_srcs; /** < number of register/SSA inputs */
    
    /** number of components of each input register */
-   unsigned reg_input_components[NIR_INTRINSIC_MAX_INPUTS];
+   unsigned src_components[NIR_INTRINSIC_MAX_INPUTS];
    
-   unsigned num_reg_outputs; /** < number of register/SSA outputs */
+   bool has_dest;
    
    /** number of components of each output register */
-   unsigned reg_output_components[2];
+   unsigned dest_components;
    
    /** the number of inputs/outputs that are variables */
    unsigned num_variables;
    
-   /** if true, the const_index parameter is used / has meaning */
-   bool has_const_index;
+   /** the number of constant indices used by the intrinsic */
+   unsigned num_indices;
    
    /** semantic flags for calls to this intrinsic */
    unsigned flags;

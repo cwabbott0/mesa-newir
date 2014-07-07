@@ -267,14 +267,13 @@ validate_deref_var(nir_deref_var *deref, validate_state *state)
 static void
 validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
 {
-   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
-   for (unsigned i = 0; i < num_inputs; i++) {
-      validate_src(&instr->reg_inputs[i], state);
+   unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
+   for (unsigned i = 0; i < num_srcs; i++) {
+      validate_src(&instr->src[i], state);
    }
    
-   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   for (unsigned i = 0; i < num_outputs; i++) {
-      validate_dest(&instr->reg_outputs[i], state);
+   if (nir_intrinsic_infos[instr->intrinsic].has_dest) {
+      validate_dest(&instr->dest, state);
    }
    
    unsigned num_vars = nir_intrinsic_infos[instr->intrinsic].num_variables;

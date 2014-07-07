@@ -29,17 +29,16 @@
 
 #define OPCODE(name) nir_intrinsic_##name
 
-#define INTRINSIC(_name, _num_reg_inputs, _reg_input_components, \
-   _num_reg_outputs, _reg_output_components, _num_variables, \
-   _has_const_index, _flags) \
+#define INTRINSIC(_name, _num_srcs, _src_components, _has_dest, \
+		  _dest_components, _num_variables, _num_indices, _flags) \
 { \
    .name = #_name, \
-   .num_reg_inputs = _num_reg_inputs, \
-   .reg_input_components = _reg_input_components, \
-   .num_reg_outputs = _num_reg_outputs, \
-   .reg_output_components = _reg_output_components, \
+   .num_srcs = _num_srcs, \
+   .src_components = _src_components, \
+   .has_dest = _has_dest, \
+   .dest_components = _dest_components, \
    .num_variables = _num_variables, \
-   .has_const_index = _has_const_index, \
+   .num_indices = _num_indices, \
    .flags = _flags \
 },
 

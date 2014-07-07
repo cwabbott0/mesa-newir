@@ -1102,11 +1102,8 @@ static bool
 visit_intrinsic_dest(nir_intrinsic_instr *instr, nir_foreach_dest_cb cb,
 		     void *state)
 {
-   unsigned num_outputs = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   for (unsigned i = 0; i < num_outputs; i++) {
-      if (!cb(&instr->reg_outputs[i], state))
-	 return false;
-   }
+   if (nir_intrinsic_infos[instr->intrinsic].has_dest)
+      return cb(&instr->dest, state);
    
    return true;
 }
@@ -1218,14 +1215,14 @@ static bool
 visit_intrinsic_src(nir_intrinsic_instr *instr, nir_foreach_src_cb cb,
 		    void *state)
 {  
-   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
-   for (unsigned i = 0; i < num_inputs; i++)
-      if (!cb(&instr->reg_inputs[i], state))
+   unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
+   for (unsigned i = 0; i < num_srcs; i++)
+      if (!cb(&instr->src[i], state))
 	 return false;
    
-   unsigned num_var_inputs =
+   unsigned num_vars =
       nir_intrinsic_infos[instr->intrinsic].num_variables;
-   for (unsigned i = 0; i < num_var_inputs; i++)
+   for (unsigned i = 0; i < num_vars; i++)
       if (!visit_deref_src(instr->variables[i], cb, state))
 	 return false;
    

@@ -29,8 +29,8 @@
  * This header file defines all the available intrinsics in one place. It
  * expands to a list of macros of the form:
  * 
- * INTRINSIC(name, num_reg_inputs, reg_input_components, num_reg_outputs,
- * 	     reg_output_components, num_variables, has_const_index, flags)
+ * INTRINSIC(name, num_srcs, src_components, has_dest, dest_components,
+ * 	     num_variables, num_indices, flags)
  * 
  * Which should correspond one-to-one with the nir_intrinsic_info structure. It
  * is included in both ir.h to create the nir_intrinsic enum (with members of
@@ -42,33 +42,33 @@
 #define ARR(...) { __VA_ARGS__ }
 
 
-INTRINSIC(load_var_vec1,  1, ARR(1), 0, ARR(), 1, false,
+INTRINSIC(load_var_vec1,   0, ARR(), true, 1, 1, 0,
 	  NIR_INTRINSIC_CAN_ELIMINATE)
-INTRINSIC(load_var_vec2,   1, ARR(2), 0, ARR(), 1, false,
+INTRINSIC(load_var_vec2,   0, ARR(), true, 2, 1, 0,
 	  NIR_INTRINSIC_CAN_ELIMINATE)
-INTRINSIC(load_var_vec3,   1, ARR(3), 0, ARR(), 1, false,
+INTRINSIC(load_var_vec3,   0, ARR(), true, 3, 1, 0,
 	  NIR_INTRINSIC_CAN_ELIMINATE)
-INTRINSIC(load_var_vec4,   1, ARR(4), 0, ARR(), 1, false,
+INTRINSIC(load_var_vec4,   0, ARR(), true, 4, 1, 0,
 	  NIR_INTRINSIC_CAN_ELIMINATE)
-INTRINSIC(store_var_vec1, 0, ARR(), 1, ARR(1), 1, false,  0)
-INTRINSIC(store_var_vec2,  0, ARR(), 1, ARR(2), 1, false, 0)
-INTRINSIC(store_var_vec3,  0, ARR(), 1, ARR(3), 1, false, 0)
-INTRINSIC(store_var_vec4,  0, ARR(), 1, ARR(4), 1, false, 0)
-INTRINSIC(copy_var,        0, ARR(), 0, ARR(),  2, false, 0)
+INTRINSIC(store_var_vec1, 1, ARR(1), false, 0, 1, 0, 0)
+INTRINSIC(store_var_vec2, 1, ARR(2), false, 0, 1, 0, 0)
+INTRINSIC(store_var_vec3, 1, ARR(3), false, 0, 1, 0, 0)
+INTRINSIC(store_var_vec4, 1, ARR(4), false, 0, 1, 0, 0)
+INTRINSIC(copy_var,       0, ARR(),  false, 0, 2, 0, 0)
 
-#define LOAD(name, has_const_index, flags) \
-   INTRINSIC(load_##name, 1, ARR(1), 1, ARR(4), 0, has_const_index, \
+#define LOAD(name, num_indices, flags) \
+   INTRINSIC(load_##name, 1, ARR(1), true, 4, 0, num_indices, \
 	     NIR_INTRINSIC_CAN_ELIMINATE | flags)
 
-LOAD(uniform, false, NIR_INTRINSIC_CAN_REORDER)
-LOAD(ubo, true, NIR_INTRINSIC_CAN_REORDER)
-LOAD(input, false, NIR_INTRINSIC_CAN_REORDER)
-/* LOAD(ssbo, true, 0) */
+LOAD(uniform, 1, NIR_INTRINSIC_CAN_REORDER)
+LOAD(ubo, 2, NIR_INTRINSIC_CAN_REORDER)
+LOAD(input, 2, NIR_INTRINSIC_CAN_REORDER)
+/* LOAD(ssbo, 2, 0) */
 
-#define STORE(name, has_const_index, flags) \
-   INTRINSIC(store_##name, 2, ARR(1, 4), 0, ARR(), 0, has_const_index, flags)
+#define STORE(name, num_indices, flags) \
+   INTRINSIC(store_##name, 2, ARR(1, 4), false, 0, 0, num_indices, flags)
 
-STORE(output, false, 0)
-/* STORE(ssbo, true, 0) */
+STORE(output, 1, 0)
+/* STORE(ssbo, 2, 0) */
 
 LAST_INTRINSIC(store_output)

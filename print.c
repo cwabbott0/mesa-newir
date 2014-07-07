@@ -293,8 +293,7 @@ static void
 print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
 		      FILE *fp)
 {
-   unsigned num_dests = nir_intrinsic_infos[instr->intrinsic].num_reg_outputs;
-   unsigned num_inputs = nir_intrinsic_infos[instr->intrinsic].num_reg_inputs;
+   unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
    
    if (instr->has_predicate) {
       fprintf(fp, "(");
@@ -302,24 +301,19 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
       fprintf(fp, ") ");
    }
    
-   bool first = true;
-   for (unsigned i = 0; i < num_dests; i++) {
-      if (!first)
-	 fprintf(fp, ", ");
-      
-      print_dest(&instr->reg_outputs[i], fp);
-      
-      first = false;
+   if (nir_intrinsic_infos[instr->intrinsic].has_dest) {
+      print_dest(&instr->dest, fp);
+      fprintf(fp, " = ");
    }
    
-   fprintf(fp, " = instrinsic %s (", nir_intrinsic_infos[instr->intrinsic].name);
+   fprintf(fp, "instrinsic %s (", nir_intrinsic_infos[instr->intrinsic].name);
    
-   first = true;
-   for (unsigned i = 0; i < num_inputs; i++) {
+   bool first = true;
+   for (unsigned i = 0; i < num_srcs; i++) {
       if (!first)
 	 fprintf(fp, ", ");
       
-      print_src(&instr->reg_inputs[i], fp);
+      print_src(&instr->src[i], fp);
       
       first = false;
    }
@@ -338,10 +332,21 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_var_state *state,
       first = false;
    }
    
-   fprintf(fp, ")");
+   fprintf(fp, ") (");
    
-   if (nir_intrinsic_infos[instr->intrinsic].has_const_index)
-      fprintf(fp, ", %u", instr->const_index);
+   unsigned num_indices = nir_intrinsic_infos[instr->intrinsic].num_indices;
+   
+   first = true;
+   for (unsigned i = 0; i < num_indices; i++) {
+      if (!first)
+	 fprintf(fp, ", ");
+      
+      fprintf(fp, "%u", instr->const_index[i]);
+      
+      first = false;
+   }
+   
+   fprintf(fp, ")");
 }
 
 static void
