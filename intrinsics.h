@@ -62,7 +62,7 @@ INTRINSIC(copy_var,       0, ARR(),  false, 0, 2, 0, 0)
 
 LOAD(uniform, 1, NIR_INTRINSIC_CAN_REORDER)
 LOAD(ubo, 2, NIR_INTRINSIC_CAN_REORDER)
-LOAD(input, 2, NIR_INTRINSIC_CAN_REORDER)
+LOAD(input, 1, NIR_INTRINSIC_CAN_REORDER)
 /* LOAD(ssbo, 2, 0) */
 
 #define STORE(name, num_indices, flags) \
