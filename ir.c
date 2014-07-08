@@ -614,7 +614,7 @@ handle_remove_jump(nir_block *block)
 {
    unlink_block_successors(block);
    
-   if (exec_node_is_tail_sentinel(&block->cf_node.node)) {
+   if (exec_node_is_tail_sentinel(block->cf_node.node.next)) {
       nir_cf_node *parent = block->cf_node.parent;
       if (parent->type == nir_cf_node_if) {
 	 nir_cf_node *next = nir_cf_node_next(parent);
