@@ -25,7 +25,7 @@
  *
  */
 
-#include "ir.h"
+#include "nir.h"
 #include <stdio.h>
 #include <stdlib.h>
 

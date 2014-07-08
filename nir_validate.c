@@ -25,7 +25,7 @@
  *
  */
 
-#include "ir.h"
+#include "nir.h"
 #include <assert.h>
 
 /*

@@ -25,7 +25,7 @@
  *
  */
 
-#include "ir_types.h"
+#include "nir_types.h"
 #include "glsl_types.h"
 
 /*

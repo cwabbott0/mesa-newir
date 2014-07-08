@@ -31,7 +31,7 @@
 #include "list.h"
 #include "GL/gl.h" /* GLenum */
 #include "ralloc.h"
-#include "ir_types.h"
+#include "nir_types.h"
 #include <stdio.h>
 
 struct nir_function_overload;
@@ -484,7 +484,7 @@ typedef struct {
 #define LAST_OPCODE(name) nir_last_opcode = nir_op_##name,
 
 typedef enum {
-#include "opcodes.h"
+#include "nir_opcodes.h"
    nir_num_opcodes = nir_last_opcode + 1
 } nir_op;
 
@@ -591,7 +591,7 @@ typedef struct {
 #define LAST_INTRINSIC(name) nir_last_intrinsic = nir_intrinsic_##name,
 
 typedef enum {
-#include "intrinsics.h"
+#include "nir_intrinsics.h"
    nir_num_intrinsics = nir_last_intrinsic + 1
 } nir_intrinsic_op;
 
